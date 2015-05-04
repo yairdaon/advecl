@@ -1,13 +1,15 @@
 rk:
 	make clean
-	mkdir frames/rk
+	mkdir -p frames
+	mkdir -p frames/rk
 	python2.7 pkg/rk.py
 
 
 
 euler:
 	make clean
-	mkdir frames/euler
+	mkdir -p frames
+	mkdir -p frames/euler
 	python2.7 pkg/euler.py
 
 build7:
@@ -23,6 +25,7 @@ build6:
 clean:
 	rm -rvf build *.pyc frames *.so advecl/C/build advecl/C/*.so	
 	rm -rvf *~ tests/*~ pkg/*~ pkg/*.pyc
+	clear
 
 
 tester:
