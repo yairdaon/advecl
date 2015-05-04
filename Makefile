@@ -1,3 +1,15 @@
+rk:
+	make clean
+	mkdir frames/rk
+	python2.7 pkg/rk.py
+
+
+
+euler:
+	make clean
+	mkdir frames/euler
+	python2.7 pkg/euler.py
+
 build7:
 	python2.7 advecl/C/setup.py build_ext --inplace
 	mv build advecl/C
@@ -9,12 +21,8 @@ build6:
 	mv *.so advecl
 
 clean:
-	rm -rvf advecl/C/build
-	rm -vf advecl/C/*.so	
-	rm -vf *.so
-	rm -rvf build
-	rm -vf advecl*.so
-	rm -rvf *~ tests/*~ advecl/*~
+	rm -rvf build *.pyc frames *.so advecl/C/build advecl/C/*.so	
+	rm -rvf *~ tests/*~ pkg/*~ pkg/*.pyc
 
 
 tester:
