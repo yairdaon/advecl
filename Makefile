@@ -1,21 +1,19 @@
 cl:
 	make clean
-	mkdir -p frames
-	mkdir -p frames/cl
-	python2.7 pkg/eulcl.py
+	python2.7 pycl/eulcl.py
 
 py:
 	make clean
-	mkdir -p frames
-	mkdir -p frames/euler
-	mkdir -p frames/rk
+
 
 	python2.7 pure_py/rk.py
 	python2.7 pure_py/euler.py
 
 clean:
-	rm -rvf build *.pyc frames *.so advecl/C/build advecl/C/*.so	
-	rm -rvf *~ tests/*~ pkg/*~ pkg/*.pyc
+	mkdir -p frames
+	mkdir -p frames/euler
+	mkdir -p frames/rk
+	rm -rvf build *.pyc  *.so advecl/C/build advecl/C/*.so *~ tests/*~ pkg/*~ pkg/*.pyc  frames/euler/* frames/rk/*
 	clear
 
 

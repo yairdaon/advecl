@@ -1,4 +1,6 @@
 import pyopencl as cl
+import pyopencl.tools as cl_tools
+import pyopencl.array as cl_array
 
 # numerix
 import numpy as np
@@ -7,8 +9,7 @@ import scipy as scp
 import matplotlib.pyplot as plt
 import matplotlib.mlab as mlab
 
-import helper
-
+PYOPENCL_COMPILER_OUTPUT=1
 
 # the range of xs and ys
 xStart = 0.0
@@ -18,14 +19,14 @@ yEnd   = 1.0
 levels = [ 0.15 , 0.3 , 0.45, 0.5 , 0.75]
 
 # mesh sizes
-hx = 0.1
-hy = 0.1
+hx = 0.01
+hy = 0.01
 #assert x/hx -int(x/hx) == 0.0 , "hx does not fit in x: "  + str(x/hx) + " , " +str(int(x/hx))
 #assert y/hy -int(y/hy) == 0.0 , "hy does not fit in y: "  + str(y/hy) + " , " +str(int(y/hy))
 
 # times
-ht= 0.01 # time step
-final = 4.0
+ht= 0.001 # time step
+final = 0.5
 nt   = final/ht
 
 # mean and variance of initial data
@@ -53,19 +54,10 @@ nyCenters  = len(yCenters)
 X ,Y = np.meshgrid( xCenters, yCenters )
 
 # define the initial distribution of T
-Tin = np.exp( - (  (X - mu[0])**2 + ( Y -mu[1])**2 )/(2*sig) )
-Tin = Tin.astype(np.float32) # cast to float32 so it works with kernel
+T = np.exp( - (  (X - mu[0])**2 + ( Y -mu[1])**2 )/(2*sig) )
+T = T.astype(np.float32) # cast to float32 so it works with kernel
 #T[ T < 0.15 ] = 0.0
-assert  Tin.shape == (nyCenters , nxCenters ) 
-Tout= np.empty_like(Tin)
-
-# define flows on edges 
-uVertBound  =  np.ones  ( ( nyCenters   , nxCenters+1) )
-vHorzBound  =  np.zeros( ( nyCenters+1 , nxCenters  ) )
-
-
-
-
+assert  T.shape == (nyCenters , nxCenters ) 
 
 
 # OpenCl
@@ -76,34 +68,40 @@ queue = cl.CommandQueue(ctx)
 mf = cl.mem_flags
 
 # get kernel string
-prg_file = open('pkg/knl.cl' , 'r')
+prg_file = open('pycl/knl.c' , 'r')
 prg_str  = prg_file.read()
 prg_file.close()
 
-dims  = np.array([nyCenters , nxCenters])
-steps = np.array([hx,hy,ht])
  
 # compile
 prg = cl.Program(ctx, prg_str).build()
 
+# create memory pools
+in_pool    = cl_tools.MemoryPool(cl_tools.ImmediateAllocator(queue))
+Tin_d      = cl_array.arange(queue, nyCenters*nxCenters, dtype=np.float32, allocator=in_pool)
+
+out_pool   = cl_tools.MemoryPool(cl_tools.ImmediateAllocator(queue))
+Tout_d     = cl_array.arange(queue, nyCenters*nxCenters, dtype=np.float32, allocator=out_pool)
+
+
 # do time stepping.
 for i  in range(0,int(nt)):
+        
+    Tin_d.set( T )
+    # apply the kernel here!
+    prg.forward_euler_step(queue, T.shape, None, 
+                           Tin_d.data, Tout_d.data, # array inputs
+                           np.float32(hx), np.float32(hy), np.float32(ht) ) # float inputs
 
-    # create read and write buffers
-    clTin   = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=Tin)
-    clTout  = cl.Buffer(ctx, mf.WRITE_ONLY, Tout.nbytes)
-    clDims  = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=dims)
-    clSteps = cl.Buffer(ctx, mf.READ_ONLY | mf.COPY_HOST_PTR, hostbuf=steps)
-
-    prg.forward_euler_step(queue, Tin.shape, None, clTin, clTout,
-                           clDims, clSteps )
-
-    cl.enqueue_copy(queue, Tin, Tout)
+    Tout_d.get(queue=queue , ary=T)
+    # copy data into T
+    # cl.enqueue_copy(queue, T, Tout_d)
 
 
+    # plot, not very interesting
     fig = plt.figure()
-    CS = plt.contour(X, Y, Tin, levels)
+    CS = plt.contour(X, Y, T, levels)
     plt.clabel(CS, inline=1, fontsize=10)
-    plt.title('Plots of  T, time = ' + str(i*ht))
+    plt.title('Euler steps using OpenCl, time = ' +str(i*ht) )
     fig.savefig('frames/euler/T' + str(i*ht) + '.png')
     plt.close(fig)
