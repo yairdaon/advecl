@@ -14,6 +14,9 @@
    ht is the length of the time step we take.
    
 */
+
+#define TWOPI 6.28318530718f
+#define PI    3.14159265359f
 kernel void forward_euler_step(
 			       const global float* Tin,
 			       global float* Tout,
@@ -35,10 +38,23 @@ kernel void forward_euler_step(
   uint jleft     = (j-1) % nCols; // the column on the left 
   uint jright    = (j+1) % nCols; // the column on the right  
 
-  float uTop     = 0.0f;
-  float uBottom  = 0.0f;
-  float vLeft    = 1.0f;
-  float vRight   = 1.0f;
+
+
+  // location of middle of cell
+  float midx = i*hx*TWOPI;
+  float midy = j*hy*TWOPI;
+
+  float topy = midy + hy*PI; // y at top    boundary of cell
+  float boty = midy - hy*PI; // y at bottom boundary of cell
+  float lefx = midx - hx*PI; // x at left   boundary of cell
+  float rigx = midx + hx*PI; // x at right  boundary of cell
+
+
+
+  float uTop     =  sin( midx )  *  cos( topy );
+  float uBottom  =  sin( midx )  *  cos( boty );
+  float vLeft    =  cos( lefx )  *  sin( midy );
+  float vRight   =  cos( rigx )  *  sin( midy );
   
   // Read the current  values just once.
   float mid      = Tin[i*nCols + j];

@@ -3,5 +3,9 @@
 *.so
 *.png
 *.mp4
+*.mpg
 bin/*.*
 bin/
+pure_py/
+pure_py/*.*
+#*
