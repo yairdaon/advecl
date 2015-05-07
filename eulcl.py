@@ -21,7 +21,7 @@ hy = 0.01
 
 # times
 ht    = 0.001     # time step
-final = 0.5      # final time
+final = 0.5       # final time
 nt    = final/ht  # number of time steps
 
 # center locations
@@ -83,7 +83,7 @@ for i  in range(0,int(nt)):
     CS = plt.contour(X, Y, T, levels)
     plt.clabel(CS, inline=1, fontsize=10)
     t_str = format(i*ht, "1.3f")
-    plt.title('Tracer in Taylor vortex. Integrated using Fwd Euler on a GPU.\n Time = ' + t_str)
+    plt.title('Tracer in Taylor vortex. Spatial FEM and Fwd Euler Time Steps. \n Time = ' + t_str)
     fig.savefig('frames/euler/frame' + str(i) + '.png')
     plt.close(fig)
 

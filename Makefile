@@ -5,7 +5,7 @@ clean:
 	mkdir -p frames
 	mkdir -p frames/euler
 	mkdir -p frames/rk
-	rm -rvf *.pyc *~ frames/*.* *.mpg *.mp4
+	rm -rvf *.pyc *~ frames/euler/*.* frames/rk/*.* *.mpg *.mp4
 	clear
 
 push:
