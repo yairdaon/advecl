@@ -17,32 +17,29 @@
 
 #define TWOPI 6.28318530718f
 #define PI    3.14159265359f
-kernel void forward_euler_step(
+
+
+float u( int i ) {
+
+  retun 1.0f;
+}
+
+kernel void euler1D(
 			       const global float* Tin,
-			       global float* Tout,
-			       const float hx,
-			       const float hy,
-			       const float ht)
+			       global float* Tout)
 {
   // get location
-  int i = get_global_id(0);  // row
-  int j = get_global_id(1);  // columns
+  int i = get_global_id(0);  
 
   // get the dimensions
-  int nRows = get_global_size(0); // number of rows
-  int nCols = get_global_size(1); // number of columns 
+  int n = get_global_size(0); 
 
-  // get indices
-  uint itop      = (i+1) % nRows; // the row above (wrapped) 
-  uint ibottom   = (i-1) % nRows; // the row below (wrapped)
-  uint jleft     = (j-1) % nCols; // the column on the left 
-  uint jright    = (j+1) % nCols; // the column on the right  
+  
 
 
 
   // location of middle of cell
   float midx = i*hx*TWOPI;
-  float midy = j*hy*TWOPI;
 
   float topy = midy + hy*PI; // y at top    boundary of cell
   float boty = midy - hy*PI; // y at bottom boundary of cell
@@ -73,7 +70,7 @@ kernel void forward_euler_step(
 	      );
 	
   // set the final value - perform the actual euler step
-  Tout[i*nCols + j] = mid + f*ht; 
+  Tout[i] = f; 
   return;
  
 }
