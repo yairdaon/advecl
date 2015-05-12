@@ -9,3 +9,4 @@ bin/
 pure_py/
 pure_py/*.*
 #*
+*.txt
