@@ -1,0 +1,217 @@
+
+\documentclass[paper=a4, fontsize=11pt]{scrartcl} % A4 paper and 11pt font size
+
+\usepackage[T1]{fontenc} % Use 8-bit encoding that has 256 glyphs
+\usepackage[english]{babel} % English language/hyphenation
+\usepackage{amsmath,amsfonts,amsthm} % Math packages
+\usepackage{algorithm} % algorithm package
+
+
+\usepackage{sectsty} % Allows customizing section commands
+\allsectionsfont{\centering \normalfont\scshape} % Make all sections centered, the default font and small caps
+
+\usepackage{fancyhdr} % Custom headers and footers
+\pagestyle{fancyplain} % Makes all pages in the document conform to the custom headers and footers
+\fancyhead{} % No page header - if you want one, create it in the same way as the footers below
+\fancyfoot[L]{} % Empty left footer
+\fancyfoot[C]{} % Empty center footer
+\fancyfoot[R]{\thepage} % Page numbering for right footer
+\renewcommand{\headrulewidth}{0pt} % Remove header underlines
+\renewcommand{\footrulewidth}{0pt} % Remove footer underlines
+\setlength{\headheight}{13.6pt} % Customize the height of the header
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\DeclareMathOperator*{\argmin}{arg\,min}
+\newtheorem{theorem}{Theorem}[section]
+\newtheorem{lemma}[theorem]{Lemma}
+\newtheorem{proposition}[theorem]{Proposition}
+\newtheorem{corollary}[theorem]{Corollary}
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5
+\numberwithin{equation}{section} % Number equations within sections (i.e. 1.1, 1.2, 2.1, 2.2 instead of 1, 2, 3, 4)
+\numberwithin{figure}{section} % Number figures within sections (i.e. 1.1, 1.2, 2.1, 2.2 instead of 1, 2, 3, 4)
+\numberwithin{table}{section} % Number tables within sections (i.e. 1.1, 1.2, 2.1, 2.2 instead of 1, 2, 3, 4)
+
+\setlength\parindent{0pt} % Removes all indentation from paragraphs - comment this line for an assignment with lots of text
+
+
+
+
+
+%----------------------------------------------------------------------------------------
+% new commands
+%----------------------------------------------------------------------------------------
+\newcommand{\dd}{\text{d}}
+\newcommand{\coder}[1]{\texttt{#1}}
+
+
+\title{HPC Project Summary}
+\author{Yair Daon}
+\date{}
+
+\pdfinfo{%
+  /Title    ()
+  /Author   (Yair Daon)
+  /Creator  ()
+  /Producer ()
+  /Subject  ()
+  /Keywords ()
+}
+
+\begin{document}
+\maketitle
+\begin{abstract}
+I solve scalar advection equation using OpenCl on GPUs and create visualizations.
+\end{abstract}
+\section{Problem statement}
+Consider the followin PDE:
+$$
+T_{t} + (uT)_x + (vT)_y = 0,
+$$
+for a given $u,v$ s.t $u_x + v_y = 0$.
+we'd like to solve this equation numerically and simulate the results.
+
+
+\section{Solution Methodology - math}
+Consider the 2D case.
+ Discretize the domain using finite volume method. 
+Denote the centers of the elements by $x_j, y_i$. 
+After making a few approximations, this amounts to the following ODE:
+
+$$
+\frac{\dd T_{ji}}{\dd t} = -\frac{uT(x_j + \frac{\Delta x}{2},y_i) - uT(x_j - \frac{\Delta x}{2},y_i) +
+				  vT(x_j,y_i + \frac{\Delta y}{2}) - vT(x_j,y_i + \frac{\Delta y}{2}) }{\Delta x\Delta y},
+$$
+where $uT(x,y) := u(x,y)T(x,y)$ etc.
+This amounts to an ODE and can be solved using your favorite Runge Kutta method.
+
+\section{Solution Methodology - computing}
+
+\subsection{PyOpenCl}
+For accessing OpenCl devices, I used PyOpenCl. This is a python package written by Andreas Kl\"ockner. 
+It makes creating visualizations and initial conditions a whole lot easier, not to 
+mention freeing memory and all the nice things python does seemlessly.
+
+\subsection{Mathematica} 
+A major component of my implementation relies on the observation that in this context, a RK method is really a convolution
+ (at least, as far as the GPU is concerned). The filter weights made of the functions $u,v$. If we do a n\"aive RK, we'd have to
+send data back and forth between main memory and the GPU. Recalling the rule of thumb that says 
+\\
+\centerline{\Large{``flops are cheap, memory access is expensive``},}
+\\
+
+ it's clear that one has to calculate the final update as a weighted sum of $T_{ji}, T_{(j+1),i}$ etc. 
+Doing these calculations is a horrible task, I turned to Mathematica. This program (ming language?) is made for symbolic manipulations. 
+Hence, I define the following operator in Mathematica:
+
+\begin{verbatim}
+ A = Function[T , Function[{arr,i,j}, -(
+    u[i+1,j]*( T[arr,i+1,j] + T[arr,i,j  ] ) -
+    u[i  ,j]*( T[arr,i  ,j] + T[arr,i-1,j] )
+    )/(2*HX)  - (
+    v[i,j+1]*( T[arr,i,j+1] + T[arr,i,j  ] ) - 
+    v[i,j  ]*( T[arr,i,  j] + T[arr,i,j-1] )
+    )/(2*HY)]]
+  
+  rk = T[Tin,i,j] + HT*A[T][Tin,i,j] + 0.5*HT*HT*A[A[T]][Tin,i,j]
+  string     = ToString[CForm[Simplify[rk]]]
+\end{verbatim}
+
+This allows me to let Mathematica derive any order of RK method that I want, owing to the linearity of the operator A. 
+As an example, I paste in the appendix the C code the above script generates (after some minor string modifications). 
+The advantage is a huge save in memory transfer between the host and the device. As a bonus, generalization to higher
+dimensions (i.e. 3) is trivial (add indices and copy-paste).
+
+\subsection{Inlining constants and the Kernel}
+Since I was using python, I allowed myself to add all the parameters as constatns (by using \coder{\#define PI 3.14159...} etc. This 
+might have saved some communication and some flops, but is just a tiny bonus python allows to use. The main advantage python gave me
+in this respect, is the ability to write one of the simplest kernels possible:
+\begin{verbatim}
+ kernel void rk_step( const global float* Tin, global float* Tout) {
+
+  // get location
+  long i = get_global_id(0);  
+  long j = get_global_id(1);  
+
+  if ( i < M && j < N) {
+  
+    // Here we inline the Mathematica string. This is the actual RK step calculation.
+    float res = SPLIT;
+    Tout[i*N + j] = res;
+  }
+}
+
+\end{verbatim}
+The \coder{SPLIT} ``variable'' is where python substituted the expression Mathematica gives.
+
+
+
+
+
+
+\section{Performance}
+The performance is so fast, that before anything gets really slow (on CIMS's opencl3), python is out of memory. The slow part is creating the 
+visualizations - the AMD GPU can create data faster that python acn create visualizations.
+
+
+
+\section{What have I gained}
+I got exprerience with using OpenCl, through PyOpenCl (which made deebugging and visualization much easier). I believe that writing 
+computational code in lower level language (here, OpenCL) and using an interface from a higher level language (PyOpenCl) is good
+approach to doing scientific computing. This is mainly because there is usually a small chunk of code that does the numerics (this has to 
+run FAST) and other bits that can be slower.
+
+I also learned that every vendor has their own nuiances and so fitting your code to the machine it will run on isn't necessarily
+a bad idea. My problem was creating code that is portable between Intel and AMD - the errors they give are not consistent.
+
+I leanred to use Mathematica for deriving complicated expressions. The main (only?) idea was to use $\lambda$ calculus
+and treat arrays as functions and indices as their variables. This will surely prove useful any time I want to perform a numeric
+simulation that relies on discretizations.
+
+\section{What I did not do and failures}
+I did not run the code on a 3D problem, lacking an appropriate flow problem. I used a RK method of order 2 only.
+For some reason, the OpenCl compiler gives a lots of
+errors when the string I substitute in it is too big. I did not cache the input \coder{Tin} array to local memory, lacking time to do so. 
+This might have sped things up. However, the code ran so fast that I did not feel a need to do so.
+
+\newpage
+
+\section{Appendix}
+Here is the C code Mathematica spits out for a 2D 2nd order Runge Kutta method. For higher orders and dimensions, it is even worst.
+\begin{verbatim}
+T(Tin,i,j) + HT*(-(-((T(Tin,-1 + i,j) + T(Tin,i,j))*u(i,j)) 
++ (T(Tin,i,j) + T(Tin,1 + i,j))*u(1 + i,j))/(2.f*HX) - 
+(-((T(Tin,i,-1 + j) + T(Tin,i,j))*v(i,j)) + (T(Tin,i,j) 
++ T(Tin,i,1 + j))*v(i,1 + j))/(2.f*HY)) + 
+(8*HT*HT*HX*HX*HY*HY)/(HY*HY*T(Tin,-2 + i,j)*u(-1 + i,j)*u(i,j)
+ - 2*HY*HY*T(Tin,i,j)*u(i,j)*u(1 + i,j)
+ - HY*HY*T(Tin,1 + i,j)*u(i,j)*u(1 + i,j) + HY*HY*T(Tin,1 + i,j)
+*u(1 + i,j)*u(2 + i,j) + HY*HY*T(Tin,2 + i,j)
+*u(1 + i,j)*u(2 + i,j) + HX*HY*T(Tin,-1 + i,-1 + j)*u(i,j)*
+v(-1 + i,j) - HX*HY*T(Tin,-1 + i,1 + j)*u(i,j)*v(-1 + i,1 + j)
+ + HX*HY*T(Tin,-1 + i,-1 + j)*u(i,-1 + j)*v(i,j) + HX*HY*
+T(Tin,i,-1 + j)*u(i,-1 + j)*v(i,j) + HX*HY*T(Tin,i,-1 + j)*
+u(i,j)*v(i,j) + 2*HX*HY*T(Tin,i,j)*u(i,j)*v(i,j) - HX*HY*
+T(Tin,i,-1 + j)*u(1 + i,-1 + j)*v(i,j) - HX*HY*T(Tin,1 + i,-1 + j)*
+u(1 + i,-1 + j)*v(i,j) - HX*HY*T(Tin,i,-1 + j)*u(1 + i,j)*v(i,j)
+ - 2*HX*HY*T(Tin,i,j)*u(1 + i,j)*v(i,j) - HX*HY*T(Tin,1 + i,j)*u(1 + i,j)*v(i,j) 
++ HX*HX*T(Tin,i,-2 + j)*v(i,-1 + j)*v(i,j) + HX*HX*T(Tin,i,-1 + j)*
+v(i,-1 + j)*v(i,j) + HY*T(Tin,-1 + i,j)*u(i,j)*(HY*u(-1 + i,j)
+ - HY*u(1 + i,j) + HX*(v(-1 + i,j) - v(-1 + i,1 + j) + v(i,j) -
+ v(i,1 + j))) - 2*HX*HY*T(Tin,i,j)*u(i,j)*v(i,1 + j)
+ - HX*HY*T(Tin,i,1 + j)*u(i,j)*v(i,1 + j) - HX*HY*T(Tin,-1 + i,1 + j)*
+u(i,1 + j)*v(i,1 + j) - HX*HY*T(Tin,i,1 + j)*u(i,1 + j)*v(i,1 + j)
+ + 2*HX*HY*T(Tin,i,j)*u(1 + i,j)*v(i,1 + j) + HX*HY*T(Tin,i,1 + j)*
+u(1 + i,j)*v(i,1 + j) + HX*HY*T(Tin,1 + i,j)*u(1 + i,j)*v(i,1 + j)
+ + HX*HY*T(Tin,i,1 + j)*u(1 + i,1 + j)*v(i,1 + j) + HX*HY*
+T(Tin,1 + i,1 + j)*u(1 + i,1 + j)*v(i,1 + j) 
+- HX*HX*T(Tin,i,-1 + j)*v(i,j)*v(i,1 + j) - 2*HX*HX*T(Tin,i,j)*
+v(i,j)*v(i,1 + j) - HX*HX*T(Tin,i,1 + j)*v(i,j)*v(i,1 + j) +
+ HX*HX*T(Tin,i,1 + j)*v(i,1 + j)*v(i,2 + j) +
+ HX*HX*T(Tin,i,2 + j)*v(i,1 + j)*v(i,2 + j) - HX*HY*
+T(Tin,1 + i,-1 + j)*u(1 + i,j)*v(1 + i,j) -
+ HX*HY*T(Tin,1 + i,j)*u(1 + i,j)*v(1 + i,j) + HX*HY*
+T(Tin,1 + i,j)*u(1 + i,j)*v(1 + i,1 + j) +
+ HX*HY*T(Tin,1 + i,1 + j)*u(1 + i,j)*v(1 + i,1 + j)) 
+\end{verbatim}
+
+\end{document}

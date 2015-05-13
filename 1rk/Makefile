@@ -1,16 +1,12 @@
 1:	str1d.txt
 	make clean
 	python2.7 eulcl1D.py
-	python2.7 movie.py
-str1d.txt: Euler1d.m
-	math -script Euler1d.m
-movie:
-	python2.7 movie.py
-	rm -rvf data/*.*
+str1d.txt: 1d.m
+	math -script 1d.m
+
 clean:
 	mkdir -p frames
-	mkdir -p data
-	rm -rvf *.pyc *~ frames/*.* data/*.* *.mpg *.mp4
+	rm -rvf *.pyc *~ frames/*.* *.mpg *.mp4
 	clear
 
 push:

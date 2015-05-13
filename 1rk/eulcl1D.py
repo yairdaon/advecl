@@ -1,4 +1,8 @@
 import numpy as np
+import scipy as scp
+import matplotlib.pyplot as plt
+import matplotlib.mlab as mlab
+import os
 
 import pyopencl as cl
 import pyopencl.tools as cl_tools
@@ -16,14 +20,12 @@ hx = 0.01
 
 # times
 ht    = 0.001     # time step
-final = 0.1       # final time
+final = 0.5       # final time
 nt    = final/ht  # number of time steps
-np.save("data/times.npy" ,np.array([ht,final]))
 
 # center locations
 xCenters = np.arange( hx/2, 1.0 + hx/2 , hx) # from 0 to 1 - don't change!!!
 nxCenters  = len(xCenters)
-np.save("data/xCenters.npy" ,xCenters)
 
 
 # define the initial distribution of T
@@ -31,7 +33,6 @@ T = np.exp( - (
         ( (  xCenters - mu  )/sig) **2 
         )/2.0
               )
-T = T +0.1
 T = T.astype(np.float32) # cast to float32 so it works with kernel
 
 
@@ -48,9 +49,8 @@ prg_file = open('ker.c' , 'r')
 prg_str = prg_file.read()
 hx_str = "#define HX " + str(hx) + "f\n"
 ht_str = "#define HT " + str(ht) + "f\n"
-N_str  = "#define N "  + str(nxCenters)
-prg_str  = hx_str +  ht_str + N_str + prg_str
-parts = prg_str.split("SPLIT")
+prg_str  = hx_str +  ht_str + prg_str
+parts = prg_str.split("//SPLIT")
 
 # get the Mathmatica expression
 op_file = open('str1d.txt' ,'r')
@@ -74,16 +74,25 @@ Tout_d     = cl_array.arange(queue, nxCenters, dtype=np.float32, allocator=out_p
 
 # do time stepping.
 for i  in range(0,int(nt)):
-    
-    # Write T into disk
-    np.save("data/array" + str(i) ,T)
-
+        
     Tin_d.set( T )
-    
     # apply the kernel here!
     prg.euler1D(queue, T.shape, None, 
                            Tin_d.data, Tout_d.data)# array inputs
     # copy data into T
     Tout_d.get(queue=queue , ary=T)
 
-    
+    # plot, not very interesting
+    fig = plt.figure()
+    plt.plot(xCenters,  T)
+    #plt.clabel(CS, inline=1, fontsize=10)
+    t_str = format(i*ht, "1.3f")
+    plt.title('Tracer concentration. Spatial FEM and Fwd Euler Time Steps. \n Time = ' + t_str)
+    plt.axis([0.0,1.0,0.0,1.5])
+    fig.savefig('frames/frame' + str(i) + '.png')
+    plt.close(fig)
+
+
+res = os.system("ffmpeg -i frames/frame%d.png euler1D.mpg")
+if (res != 0):
+    print "Your machine does not have ffmpeg, so there is no movie."

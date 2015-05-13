@@ -10,3 +10,7 @@ pure_py/
 pure_py/*.*
 #*
 *.txt
+*.log
+*.pdf
+*.backup
+*.aux

@@ -22,27 +22,26 @@
 inline float u( float i ){ 
   return 1.0f;
 }
+
 // We use the inline flag so that the compiler can optimize memory access.
 inline float T(const global float *array, int i) { 
-  return array[i%N];
+  return array[i];
 }
 
 kernel void euler1D( const global float* Tin,
 		     global float* Tout)
 {
-  
   // get location
   int i = get_global_id(0);  
 
-  if ( i >= 0 && i < N) {
-    // Here we inline the Mathematica string
-    float f = SPLIT;
-    
-    // set the final value - perform the actual euler step
-    Tout[i-1] = f; 
-  }
-  barrier(CLK_GLOBAL_MEM_FENCE);
+  // get the dimensions
+  int n = get_global_size(0); 
+
+  // Here we inline the Mathematica string
+  float f = //SPLIT;
+ 
+  // set the final value - perform the actual euler step
+  Tout[i] = f; 
   return;
  
 }
-
