@@ -14,3 +14,5 @@ pure_py/*.*
 *.pdf
 *.backup
 *.aux
+tmp*
+*.pyc

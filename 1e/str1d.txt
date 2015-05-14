@@ -1,1 +1,0 @@
-T(Tin,i) + HT*(((T(Tin,-1 + i) + T(Tin,i))*u(-0.5f + i))/(2.f*HX) - ((T(Tin,i) + T(Tin,1 + i))*u(0.5f + i))/(2.f*HX))

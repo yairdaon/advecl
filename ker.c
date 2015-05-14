@@ -1,17 +1,3 @@
-
-
-
-#define PP 0.172537688699f
-#define PSI 25464.7908947f
-#define A 1.56879760003e-06f
-#define B -1.57279760003e-06f
-#define PIB 1.57079632679e-06f
-#define D 8600
-#define N  100
-#define M  200
-#define HX 10000
-#define HY 10000
-#define HT 48132761.9126f
 /*
 #ifdef cl_khr_fp64
     #pragma OPENCL EXTENSION cl_khr_fp64 : enable
@@ -27,8 +13,9 @@
 
 
 // From python:
-  //U  = PIB * psi * np.cos( Y * PIB ) * (   P * np.exp(A*X)  +      (1-P) * np.exp(B*X) -1  )/D;
-  //V  =     - psi * np.sin( Y * PIB ) * ( A*P * np.exp(A*X)  +  B * (1-P) * np.exp(B*X)     )/D; 
+//U   = PIB * psi * np.cos( Y * PIB ) * (   P * np.exp(A*X)  +      (1-P) * np.exp(B*X) -1  )/D;
+//V   =     - psi * np.sin( Y * PIB ) * ( A*P * np.exp(A*X)  +  B * (1-P) * np.exp(B*X)     )/D; 
+  
 
 inline float u( long i ,long j ){ 
   if ( i < 1 || i > M-1 || j < 1 || j > N-1 ) {
@@ -79,12 +66,9 @@ kernel void rk_step( const global float* Tin,
 
   if ( i < M && j < N) {
 
-    // Here we inline the Mathematica string. This is the actual Euler step calculation.
-    float res = T(Tin,i,j) + HT*(-(-((T(Tin,-1 + i,j) + T(Tin,i,j))*u(i,j)) + (T(Tin,i,j) + T(Tin,1 + i,j))*u(1 + i,j))/(2.f*HX) - (-((T(Tin,i,-1 + j) + T(Tin,i,j))*v(i,j)) + (T(Tin,i,j) + T(Tin,i,1 + j))*v(i,1 + j))/(2.f*HY));
+    // Here we inline the Mathematica string. This is the actual time step calculation.
+    float res = SPLIT;
   
     Tout[i*N + j] = res;
   }
 }
-
-
-
