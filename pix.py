@@ -12,16 +12,17 @@ import pyopencl.array as cl_array
 
 from constants import *
 import getstring
-def make_pix(rk_ord , set_up):
+
+def make_pix(rk_ord , set_up, target, h, final):
     
     os.environ["PYOPENCL_CTX"] = set_up
     
     # RK order 1 = Euler
     order = int(rk_ord)
-    
+     
     # meshes sizes
-    hx = 0.0001
-    hy = 0.0001
+    hx = float(h)
+    hy = float(h)
 
     # center locations
     xCenters   = np.arange( hx/2,  a + hx/2 , hx) 
@@ -37,12 +38,12 @@ def make_pix(rk_ord , set_up):
 
     # times
     ht    = hx/(factor*cfl)   # time step
-    nt    = 2000    # number of time steps
+    nt    = int(int(final)/ht)    # number of time steps
 
     # define the initial distribution of T
     T = np.exp( - (  
-            ((X-mu[0])/sig[0])**2 +
-            ((Y-mu[1])/sig[1])**2 
+            ((X-mu[0])/sig[0])**4 +
+            ((Y-mu[1])/sig[1])**4 
             )/2.0
               )
     T = T.astype(np.float32) # cast to float32 so it works with kernel
@@ -75,7 +76,7 @@ def make_pix(rk_ord , set_up):
                   +str(i) + ",T = " + str(i*ht)+ " weeks.")
         if hasattr(plt, "streamplot"):
             plt.streamplot(X, Y, U, V, color=U, linewidth=2, cmap=plt.cm.autumn)
-        fig.savefig('frames/frame' + str(i) + '.png')
+        fig.savefig(target + '/frame' + str(i) + '.png')
         plt.close(fig)    
             
         # Copy T into Tin_d
@@ -88,4 +89,4 @@ def make_pix(rk_ord , set_up):
         # Copy data into T
         Tout_d.get(queue=queue , ary=T)
             
-make_pix(sys.argv[1], sys.argv[2])
+make_pix(sys.argv[1], sys.argv[2], sys.argv[3], sys.argv[4], sys.argv[5])

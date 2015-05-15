@@ -87,20 +87,22 @@ This amounts to an ODE and can be solved using your favorite Runge Kutta method.
 \section{Solution Methodology - computing}
 
 \subsection{PyOpenCl}
-For accessing OpenCl devices, I used PyOpenCl. This is a python package written by Andreas Kl\"ockner. 
+For accessing OpenCl devices, I used PyOpenCl. This is a wonderful python package written by Andreas Kl\"ockner. 
 It makes creating visualizations and initial conditions a whole lot easier, not to 
-mention freeing memory and all the nice things python does seemlessly.
+mention freeing memory and all the nice things python does seamlessly.
 
 \subsection{Mathematica} 
 A major component of my implementation relies on the observation that in this context, a RK method is really a convolution
  (at least, as far as the GPU is concerned). The filter weights made of the functions $u,v$. If we do a n\"aive RK, we'd have to
 send data back and forth between main memory and the GPU. Recalling the rule of thumb that says 
 \\
-\centerline{\Large{``flops are cheap, memory access is expensive``},}
+\\
+\centerline{\Large{``Flops are cheap, memory access is expensive``}}
 \\
 
  it's clear that one has to calculate the final update as a weighted sum of $T_{ji}, T_{(j+1),i}$ etc. 
-Doing these calculations is a horrible task, I turned to Mathematica. This program (ming language?) is made for symbolic manipulations. 
+Performing these calculations manually is a horrible task, so I turned to Mathematica. It is a super high level and abstract
+programming language suitable for symbolic manipulations. 
 Hence, I define the following operator in Mathematica:
 
 \begin{verbatim}
@@ -111,13 +113,19 @@ Hence, I define the following operator in Mathematica:
     v[i,j+1]*( T[arr,i,j+1] + T[arr,i,j  ] ) - 
     v[i,j  ]*( T[arr,i,  j] + T[arr,i,j-1] )
     )/(2*HY)]]
-  
-  rk = T[Tin,i,j] + HT*A[T][Tin,i,j] + 0.5*HT*HT*A[A[T]][Tin,i,j]
-  string     = ToString[CForm[Simplify[rk]]]
 \end{verbatim}
 
-This allows me to let Mathematica derive any order of RK method that I want, owing to the linearity of the operator A. 
-As an example, I paste in the appendix the C code the above script generates (after some minor string modifications). 
+I use it to get the RK step explicitly.
+\begin{verbatim}
+    rk3     = T[Tin,i,j] - HT*A[T][Tin,i,j] - 0.5*HT*HT*A[A[T]][Tin,i,j] + 
+                   	 0.25*HT*HT*HT*A[A[A[T]]][Tin,i,j]
+    rk3     = ToString[CForm[Simplify[rk3]]]
+    string  = ToString[CForm[Simplify[rk]]]
+\end{verbatim}
+
+This allows me to let Mathematica derive any order of RK method I want, owing to the linearity of the operator A. 
+As an example, I paste in the appendix the C code the above script generates (after some minor string modifications) for a
+second order RK method in 2D. 
 The advantage is a huge save in memory transfer between the host and the device. As a bonus, generalization to higher
 dimensions (i.e. 3) is trivial (add indices and copy-paste).
 
@@ -144,12 +152,13 @@ in this respect, is the ability to write one of the simplest kernels possible:
 The \coder{SPLIT} ``variable'' is where python substituted the expression Mathematica gives.
 
 
-
+\subsection{Machines}
+I used my CIMS machine's CPU and GPU and also used the Tahiti and Cedar GPU processors on opencl3.
 
 
 
 \section{Performance}
-The performance is so fast, that before anything gets really slow (on CIMS's opencl3), python is out of memory. The slow part is creating the 
+This is super fast. The real slow part is creating the 
 visualizations - the AMD GPU can create data faster that python acn create visualizations.
 
 
@@ -167,10 +176,10 @@ I leanred to use Mathematica for deriving complicated expressions. The main (onl
 and treat arrays as functions and indices as their variables. This will surely prove useful any time I want to perform a numeric
 simulation that relies on discretizations.
 
+I also go familiar with some fluid dynamics, which is cool.
+
 \section{What I did not do and failures}
-I did not run the code on a 3D problem, lacking an appropriate flow problem. I used a RK method of order 2 only.
-For some reason, the OpenCl compiler gives a lots of
-errors when the string I substitute in it is too big. I did not cache the input \coder{Tin} array to local memory, lacking time to do so. 
+I did not run the code on a 3D problem, lacking an appropriate flow problem. I did not cache the input \coder{Tin} array to local memory.
 This might have sped things up. However, the code ran so fast that I did not feel a need to do so.
 
 \newpage

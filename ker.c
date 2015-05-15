@@ -17,29 +17,31 @@
 //V   =     - psi * np.sin( Y * PIB ) * ( A*P * np.exp(A*X)  +  B * (1-P) * np.exp(B*X)     )/D; 
   
 
-inline float u( long i ,long j ){ 
-  if ( i < 1 || i > M-1 || j < 1 || j > N-1 ) {
+inline float u( float xCol ,float yRow ){ 
+  float x = (xCol+0.5)*HX;
+  float y = (yRow+0.5)*HY;
+  if ( x <= 0 || x >= HX*XCOLS    || y <= 0 || y >= HY*YROWS ) {
     return 0.0f;
   } else {
-    //return 1.0;
-    return PIB* PSI * cos ( i * HY * PIB ) * ( PP*exp(A*j*HX) + (1-PP)*exp(B*j*HX) -1.0f )/D;
-    //return sin( 2*i*HY*PIB ) * cos( j*TWOPI*HX/A );
+    return PIB* PSI * cos ( y * PIB ) * ( PP*exp(A*x) + (1-PP)*exp(B*x) -1.0f )/D;
   }
 }
-inline float v( long i ,long j ){ 
-  if ( i < 1 || i > M-1 || j < 1 || j > N-1 ) {
+
+inline float v( float xCol ,float yRow ){ 
+  float x = (xCol+0.5)*HX;
+  float y = (yRow+0.5)*HY;
+  if ( x <= 0 || x >= HX*XCOLS    || y <= 0 || y >= HY*YROWS ) {
     return 0.0f;
   } else {
-    //return 1.0;
-    return -PSI * sin( i * HY * PIB) * ( A*PP*exp(A*j*HX) + B*(1.0f-PP) * exp(B*j*HX) )/D; 
-    //return cos( i*TWOPI*HX ) * sin( j*TWOPI*HY );
+    return -PSI * sin( y * PIB) * ( A*PP*exp(A*x) + B*(1.0f-PP) * exp(B*x) )/D; 
   }
 }
-inline float T(const global float *array, long i , long j) { 
-  if ( i < 0 || i > M-1 || j < 0 || j > N-1 ) {
+
+inline float T(__global float *array, long xCol , long yRow) { 
+  if ( xCol < 0 || xCol > XCOLS-1 || yRow < 0 || yRow > YROWS-1 ) {
     return 0.0f;
   } else {  
-    return array[i*N + j];
+    return array[yRow*XCOLS + xCol];
   }
 }
 
@@ -57,18 +59,18 @@ inline float T(const global float *array, long i , long j) {
    Tin = Input  array of tracer concentration.
    Tout= Output array of tracer concentration.
 */
-kernel void rk_step( const global float* Tin,
-		     global float* Tout) {
+kernel void rk_step( __global float* Tin,
+		     __global float* Tout) {
   
   // get location
-  long i = get_global_id(0);  
-  long j = get_global_id(1);  
+  long xCol = get_global_id(0);  
+  long yRow = get_global_id(1);  
 
-  if ( i < M && j < N) {
+  if ( xCol < XCOLS && yRow < YROWS) {
 
     // Here we inline the Mathematica string. This is the actual time step calculation.
     float res = SPLIT;
   
-    Tout[i*N + j] = res;
+    Tout[yRow*XCOLS + xCol ] = res;
   }
 }

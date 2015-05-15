@@ -1,7 +1,7 @@
-local:	rk1.txt rk2.txt rk3.txt
+loc:	rk1.txt rk2.txt rk3.txt
 	mkdir -p res
-	python test_speed.py res/CPU.txt 0
-	python test_speed.py res/GPU.txt 1:0
+	python test_speed.py res/GPU.txt 1:0 
+	python test_speed.py res/CPU.txt 0 
 
 
 amd:	rk1.txt rk2.txt rk3.txt
@@ -9,18 +9,27 @@ amd:	rk1.txt rk2.txt rk3.txt
 	python test_speed.py res/cedar.txt 0:0
 	python test_speed.py res/tahiti.txt 0:1
 
+
 locPix:	rk1.txt rk2.txt rk3.txt
-	rm -rvf frames/*.* *.mpg *.mp4 
-	python2.7 pix.py 2 1:0
-	ffmpeg
+	rm -rvf loc/*.* *.mpg *.mp4 
+	mkdir -p loc
+	python2.7 pix.py 1 1:0 loc 0.005 700
+	ffmpeg -i loc/frame%d.png loc_movie.mpg
 
 amdPix:	rk1.txt rk2.txt rk3.txt
-	rm -rvf frames/*.* *.mpg *.mp4 
-	python pix.py 2 0:0
+	rm -rvf amd/*.* *.mpg *.mp4 
+	mkdir -p amd
+	python pix.py 3 0:0 amd 0.01 1000
+	ffmpeg -i amd/frame%d.png amd_movie.mpg	
+
+pure:	pure/*.png
+	rm -rvf pure/*.* *.mpg *.mp4 
+	mkdir -p pure
+	python2.7 pure.py 
 
 clean:
 	mkdir -p frames
-	rm -rvf *.pyc *~ frames/*.* *.mpg *.mp4 res/*.* *.txt pdf/*.aux pdf/*.log pdf/*.pdf pdf/*.backup tmp_ker*
+	rm -rvf *.pyc *~ frames/*.* *.mpg *.mp4  pdf/*.aux pdf/*.log pdf/*.pdf pdf/*.backup tmp_ker*
 	clear
 
 
