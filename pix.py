@@ -53,7 +53,7 @@ def make_pix(rk_ord , set_up, target, h, final):
     queue = cl.CommandQueue(ctx)
 
     # Get the kernel from a string
-    prg_str = getstring.get(order , hx, hy, ht, nxCenters, nyCenters)
+    prg_str = getstring.get2d(order , hx, hy, ht, nxCenters, nyCenters)
 
     # compile
     prg = cl.Program(ctx, prg_str).build()
@@ -68,20 +68,21 @@ def make_pix(rk_ord , set_up, target, h, final):
     # do time stepping and plotting.
     for i  in range(nt):
     
-        # plot, not very interesting
-        fig = plt.figure()
-        CS = plt.contour(X, Y, T, levels=levels)
-        plt.clabel(CS)
-        plt.title("Tracer concentration. Spatial FEM and RK" + str(order) +" Time Steps.\n Step "
-                  +str(i) + ",T = " + str(i*ht)+ " weeks.")
-        if hasattr(plt, "streamplot"):
-            plt.streamplot(X, Y, U, V, color=U, linewidth=2, cmap=plt.cm.autumn)
-        fig.savefig(target + '/frame' + str(i) + '.png')
-        plt.close(fig)    
+        if (nt % 20 == 0):
+            # plot, not very interesting
+            fig = plt.figure()
+            CS = plt.contour(X, Y, T, levels=levels)
+            plt.clabel(CS)
+            plt.title("Tracer concentration. Spatial FEM and RK" + str(order) +" Time Steps.\n Step "
+                      +str(i) + ",T = " + str(i*ht)+ " weeks.")
+            if hasattr(plt, "streamplot"):
+            	plt.streamplot(X, Y, U, V, color=U, linewidth=2, cmap=plt.cm.autumn)
+            fig.savefig(target + '/frame' + str(i) + '.png')
+            plt.close(fig)    
             
         # Copy T into Tin_d
         Tin_d.set( T.ravel(), queue=queue )   
-
+        
         # Apply the kernel here
         prg.rk_step(queue, T.shape, None, 
                     Tin_d.data, Tout_d.data)

@@ -31,17 +31,22 @@ def test_speed(file_name , ctx_str):
         # meshes sizes
         hx = h
         hy = h
-
+        hz = h
+        
         # center locations
         xCenters   = np.arange( hx/2,  a + hx/2 , hx) 
         nxCenters  = len(xCenters)
         yCenters   = np.arange( hy/2,  b + hy/2 , hy) 
         nyCenters  = len(yCenters)
+        zCenters   = np.arange( hy/2,  c + hy/2 , hy) 
+        nzCenters  = len(zCenters)
+
 
         # grids, to get the CFL
-        X, Y = np.meshgrid(xCenters , yCenters )
+        X, Y, Z = np.meshgrid(xCenters , yCenters , zCenters)
         U  = PIB * psi * np.cos( Y * PIB ) * (   P * np.exp(A*X)  +      (1-P) * np.exp(B*X) -1  )/D;
         V  =     - psi * np.sin( Y * PIB ) * ( A*P * np.exp(A*X)  +  B * (1-P) * np.exp(B*X)     )/D; 
+        W  = np.empty_like(U)
         cfl = np.max(np.abs(U)) +  np.max(np.abs(V))
 
         # time step
@@ -51,6 +56,7 @@ def test_speed(file_name , ctx_str):
         T = np.exp( - (  
                 ((X-mu[0])/sig[0])**2 +
                 ((Y-mu[1])/sig[1])**2 
+                ((Z-mu[2])/sig[2])**2 
                 )/2.0
                       )
         T = T.astype(np.float32) # cast to float32 so it works with kernel
@@ -58,16 +64,16 @@ def test_speed(file_name , ctx_str):
         for order in orders:
 
             # Do string manipulations under the hood
-            prg_str = getstring.get(order , hx, hy, ht, nxCenters, nyCenters)
+            prg_str = getstring.get3d(order , hx, hy, ht, nxCenters, nyCenters)
         
             # compile
             prg = cl.Program(ctx, prg_str).build()
 
             # create memory pools       
             in_pool    = cl_tools.MemoryPool(cl_tools.ImmediateAllocator(queue))
-            Tin_d      = cl_array.arange(queue, nxCenters*nyCenters, dtype=np.float32, allocator=in_pool)    
+            Tin_d      = cl_array.arange(queue, nxCenters*nyCenters*nzCenters, dtype=np.float32, allocator=in_pool)    
             out_pool   = cl_tools.MemoryPool(cl_tools.ImmediateAllocator(queue))
-            Tout_d     = cl_array.arange(queue, nxCenters*nyCenters, dtype=np.float32, allocator=out_pool)
+            Tout_d     = cl_array.arange(queue, nxCenters*nyCenters*nzCenters, dtype=np.float32, allocator=out_pool)
 
             # start the timing:
             start = time.clock()
@@ -89,7 +95,7 @@ def test_speed(file_name , ctx_str):
                 end = time.clock()
 
             # RK order , space step , number of time steps , number of points, total time\n")
-            data = str(order) + " , " + str(h) +  " , " + str(nSpeed) + " , " + str(T.shape[0]*T.shape[1]) + " , " + str(end-start)  + "\n"
+            data = str(order) + " , " + str(h) +  " , " + str(nSpeed) + " , " + str(T.shape[0]*T.shape[1]*T.shape[2]) + " , " + str(end-start)  + "\n"
             with open(file_name, "a") as myfile:
                 myfile.write(data)
 

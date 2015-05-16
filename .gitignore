@@ -16,3 +16,5 @@ pure_py/*.*
 *.aux
 tmp*
 *.pyc
+#
+.#*

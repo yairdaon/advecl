@@ -1,0 +1,136 @@
+\documentclass[]{beamer}
+% Class options include: notes, notesonly, handout, trans,
+%                        hidesubsections, shadesubsections,
+%                        inrow, blue, red, grey, brown
+
+% Theme for beamer presentation.
+\usepackage{beamerthemesplit} 
+% Other themes include: beamerthemebars, beamerthemelined, 
+%                       beamerthemetree, beamerthemetreebars  
+\newcommand{\der}{\text{d}}
+\title{Fast solution of advection equation using GPUs}    % Enter your title between curly braces
+\author{Yair Daon}                 % Enter your name between curly braces
+\institute{Courant Institute}      % Enter your institute name between curly braces
+\date{\today}                    % Enter the date or \today between curly braces
+
+\begin{document}
+
+% Creates title page of slide show using above information
+\begin{frame}
+  \titlepage
+\end{frame}
+\note{Talk for 30 minutes} % Add notes to yourself that will be displayed when
+                           % typeset with the notes or notesonly class options
+
+\section{Problem Statement}
+\begin{frame}
+  \frametitle{Problem statement}   % Insert frame title between curly braces
+
+  \begin{itemize}
+  \item We'd like to simulate $\frac{\partial T}{\partial t} + \sum_{i=1}^{d} \frac{\partial u^{(i)}T}{\partial x^{(i)}} = 0$ 
+  \item $T$ is a tracer - ``a drop of ink in water''.
+  \item $d$ is the dimension. I'll show visualizations when $d=2$ and scaling results for $d=3$.
+  \item Focus on flows such that $\sum_{i=1}^{d} \frac{\partial u^{(i)}}{\partial x^{(i)}} = 0$ - incompressible.
+  \end{itemize}
+\end{frame}
+\note[enumerate]       % Add notes to yourself that will be displayed when
+{                      % typeset with the notes or notesonly class options
+\item Note for Point 1   
+\item Note for Point 2   
+}
+
+
+
+% Creates table of contents slide incorporating
+% all \section and \subsection commands
+\begin{frame}
+  \tableofcontents
+\end{frame}
+
+
+\section{Numerics}
+
+\begin{frame}
+  \frametitle{Numerical Method}   % Insert frame title between curly braces
+
+  \begin{itemize}
+  \item<1-> Use finite volume. Here's how we do it in 2D.
+  \item<2-> Partition space to boxes. Denote centers by $(x_j, y_k)$. 
+  \item<3-> Integrate the equation in all coordinates over box.
+  \item<4-> Gives integrals that we estimate like $\int_{x_j - \frac{\Delta x}{2}}^{x_j + \frac{\Delta x}{2}} F(x,y_k) dx \approx F(x_j ,y_k)\Delta x$
+  \item<5-> When the dust settlels, 
+  $$
+  \frac{\der T_{ij}}{\der t} = -\frac{uT(x_{i+\frac{1}{2}} , y_j) - uT(x_{i-\frac{1}{2}} , y_j)}{\Delta x} -\frac{vT(x_i , y_{j+\frac{1}{2}}) - vT(x_i , y_{j-\frac{1}{2}})}{\Delta y}.
+  $$  
+  \item<6-> $uT(x,y) = u(x,y) T(x,y)$.
+  \item<7-> Important - estimate $T$ on cell edges as an average of the two neighbouring cells.
+  \item<8-> Result: an ODE of the form $\frac{\der T}{\der t} = AT$, with $A$ linear in $T$.
+  \end{itemize}
+\end{frame}
+
+\begin{frame}
+  \frametitle{Saving on memory access costs}   % Insert frame title between curly braces
+
+  \begin{itemize}
+\item<1-> Keep in mind, we want to simulate
+  $$
+  \frac{\der T_{ij}}{\der t} = -\frac{uT(x_{i+\frac{1}{2}} , y_j) - uT(x_{i-\frac{1}{2}} , y_j)}{\Delta x} -\frac{vT(x_i , y_{j+\frac{1}{2}}) - vT(x_i , y_{j-\frac{1}{2}})}{\Delta y}.
+  $$  
+  \item<2-> We'd like to use RK for $\frac{\der T}{\der t} = AT$. $A$ is just a convolution.
+  \item<3-> Naive implementation has big cost of data transmission.
+  \item<4-> We need $AT, A^2T, A^3T$ etc. locally on the GPU.
+  \item<4-> Manually is nasty. Forming the matrix is a bad idea.
+  \item<5-> Better - $T: \mathbb{N}^2 \to \mathbb{R}$ and $A:(\mathbb{N}^2 \to \mathbb{R}) \to (\mathbb{N}^2 \to \mathbb{R})$.  
+  \item<6-> Now Mathematica can do this for you using $\lambda$ calculus.
+  \item<7-> Bonus: switch RK method and dimension with zero effort.
+  \end{itemize}
+\end{frame}
+\note{Speak clearly}  % Add notes to yourself that will be displayed when
+                      % typeset with the notes or notesonly class options
+
+
+\section{Implementation}
+\begin{frame}
+  \frametitle{Python}   % Insert frame title between curly braces
+
+  \begin{itemize}
+  \item<1-> For the host side I used Andreas Kl\"ockner's PyOpenCl.
+  \item<2-> Allows easy set up of OpenCl and data transfer.
+  \item<3-> Relieves programmer from allocating and freeing data.
+  \item<4-> Can create the kernel on the fly using python's string methods.
+  \item<5-> Visualizations are also really easy, using matplotlib.
+  \item<6-> For CUDA machines Andreas made PyCUDA.
+  \end{itemize}
+\end{frame}
+\note{Speak clearly}  % Add notes to yourself that will be displayed when
+                      % typeset with the notes or notesonly class options
+
+\begin{frame}
+  \frametitle{Machines}   % Insert frame title between curly braces
+
+  \begin{itemize}
+  \item<1-> I ran the code on two CIMS boxes, opencl1 and opencl3. 
+  \item<2-> Did the visualizations on my box. Speedtests on opencl3 using Cedar AMD GPU. 
+  \end{itemize}
+\end{frame}
+\note{Speak clearly}  % Add notes to yourself that will be displayed when
+                      % typeset with the notes or notesonly class options
+
+\section{Results}
+\begin{frame}
+  \frametitle{Run time versus}   % Insert frame title between curly braces
+  \begin{columns}[c]
+  \column{2in}  % slides are 3in high by 5in wide
+  \begin{itemize}
+  \item<1-> Used a third order RK method in 3D
+  \item<2-> Here is the scaling of the solution when we increase the problem.
+  \end{itemize}
+  \column{2in}
+  \framebox{Insert graphic here % e.g. \includegraphics[height=2.65in]{graphic}
+  }
+  \end{columns}
+\end{frame}
+\note{The end}       % Add notes to yourself that will be displayed when
+		     % typeset with the notes or notesonly class options
+
+\end{document}

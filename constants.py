@@ -21,8 +21,8 @@ P     = (1-math.exp(B*a))/(math.exp(A*a)-math.exp(B*a))
 PIB   = math.pi/b
 
 # mean and variance of initial data
-mu  = (0.5   ,0.4  )
-sig = (0.05  ,0.05 ) 
+mu  = (0.5   ,0.4 , 0.3  )
+sig = (0.05  ,0.05, 0.05 ) 
 
 # Number of speed test iterations
 nSpeed = 10000
