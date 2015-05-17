@@ -27,44 +27,49 @@ def test_speed(file_name , ctx_str):
     mf = cl.mem_flags
         
 
-    for h in hs: 
-        # meshes sizes
-        hx = h
-        hy = h
-        hz = h
-        
-        # center locations
-        xCenters   = np.arange( hx/2,  a + hx/2 , hx) 
-        nxCenters  = len(xCenters)
-        yCenters   = np.arange( hy/2,  b + hy/2 , hy) 
-        nyCenters  = len(yCenters)
-        zCenters   = np.arange( hy/2,  c + hy/2 , hy) 
-        nzCenters  = len(zCenters)
-
-
-        # grids, to get the CFL
-        X, Y, Z = np.meshgrid(xCenters , yCenters , zCenters)
-        U  = PIB * psi * np.cos( Y * PIB ) * (   P * np.exp(A*X)  +      (1-P) * np.exp(B*X) -1  )/D;
-        V  =     - psi * np.sin( Y * PIB ) * ( A*P * np.exp(A*X)  +  B * (1-P) * np.exp(B*X)     )/D; 
-        W  = np.empty_like(U)
-        cfl = np.max(np.abs(U)) +  np.max(np.abs(V))
-
-        # time step
-        ht    = hx/(factor*cfl)  
-
-        # define the initial distribution of T
-        T = np.exp( - (  
-                ((X-mu[0])/sig[0])**2 +
-                ((Y-mu[1])/sig[1])**2 
-                ((Z-mu[2])/sig[2])**2 
-                )/2.0
-                      )
-        T = T.astype(np.float32) # cast to float32 so it works with kernel
+    
    
+        
+       
+
+    for h in hs: 
         for order in orders:
 
+            # meshes sizes
+            hx = h
+            hy = h
+            hz = h
+        
+            # center locations
+            xCenters   = np.arange( hx/2,  a + hx/2 , hx) 
+            nxCenters  = len(xCenters)
+            yCenters   = np.arange( hy/2,  b + hy/2 , hy) 
+            nyCenters  = len(yCenters)
+            zCenters   = np.arange( hy/2,  c + hy/2 , hy) 
+            nzCenters  = len(zCenters)
+
+            
+# grids, to get the CFL
+        #X, Y , Z= np.meshgrid(xCenters , yCenters , zCenters)
+        #U  = PIB * psi * np.cos( Y * PIB ) * (   P * np.exp(A*X)  +      (1-P) * np.exp(B*X) -1  )/D;
+        #V  =     - psi * np.sin( Y * PIB ) * ( A*P * np.exp(A*X)  +  B * (1-P) * np.exp(B*X)     )/D; 
+        #W  = np.ones(U.shape)
+            cfl = 3 #np.max(np.abs(U)) +  np.max(np.abs(V)) + 1
+
+            # time step
+            ht    = hx/(factor*cfl)  
+
+# define the initial distribution of T
+#T = np.exp( - (  
+#        ((X-mu[0])/sig[0])**2 +
+#        ((Y-mu[1])/sig[1])**2 +
+#        ((Z-mu[2])/sig[2])**2 
+#        )/2.0
+#              )
+            T = np.ones( (nyCenters, nxCenters ,nzCenters), dtype = np.float32) # T.astype(np.float32) # cast to float32 so it works with kernel
+            
             # Do string manipulations under the hood
-            prg_str = getstring.get3d(order , hx, hy, ht, nxCenters, nyCenters)
+            prg_str = getstring.get3d(order , hx, hy, hz, ht, nxCenters, nyCenters, nzCenters)
         
             # compile
             prg = cl.Program(ctx, prg_str).build()
@@ -91,8 +96,8 @@ def test_speed(file_name , ctx_str):
                 # Copy data into T
                 Tout_d.get(queue=queue , ary=T)
         
-                # End timing for this round
-                end = time.clock()
+            # End timing for this round
+            end = time.clock()
 
             # RK order , space step , number of time steps , number of points, total time\n")
             data = str(order) + " , " + str(h) +  " , " + str(nSpeed) + " , " + str(T.shape[0]*T.shape[1]*T.shape[2]) + " , " + str(end-start)  + "\n"

@@ -6,8 +6,8 @@ loc:	rk1.txt rk2.txt rk3.txt
 
 amd:	3Drk1.txt 3Drk2.txt 3Drk3.txt
 	mkdir -p res
-	python test_speed.py res/cedar.txt 0:0
-	python test_speed.py res/tahiti.txt 0:1
+	python test_speed.py res/cedar3d.txt 0:0
+	python test_speed.py res/tahiti3d.txt 0:1
 
 
 locPix:	rk1.txt rk2.txt rk3.txt

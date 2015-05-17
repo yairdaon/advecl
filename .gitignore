@@ -18,3 +18,7 @@ tmp*
 *.pyc
 #
 .#*
+*.nav
+*.out
+*.toc
+*.snm

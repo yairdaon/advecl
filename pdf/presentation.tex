@@ -8,7 +8,7 @@
 % Other themes include: beamerthemebars, beamerthemelined, 
 %                       beamerthemetree, beamerthemetreebars  
 \newcommand{\der}{\text{d}}
-\title{Fast solution of advection equation using GPUs}    % Enter your title between curly braces
+\title{Fast simulation of advection equation using GPUs}    % Enter your title between curly braces
 \author{Yair Daon}                 % Enter your name between curly braces
 \institute{Courant Institute}      % Enter your institute name between curly braces
 \date{\today}                    % Enter the date or \today between curly braces
@@ -35,17 +35,17 @@
 \end{frame}
 \note[enumerate]       % Add notes to yourself that will be displayed when
 {                      % typeset with the notes or notesonly class options
-\item Note for Point 1   
-\item Note for Point 2   
+\item Yair rocks.
+\item It's true, he does!!!   
 }
 
 
 
 % Creates table of contents slide incorporating
 % all \section and \subsection commands
-\begin{frame}
-  \tableofcontents
-\end{frame}
+%\begin{frame}
+%  \tableofcontents
+%\end{frame}
 
 
 \section{Numerics}
@@ -54,17 +54,17 @@
   \frametitle{Numerical Method}   % Insert frame title between curly braces
 
   \begin{itemize}
-  \item<1-> Use finite volume. Here's how we do it in 2D.
-  \item<2-> Partition space to boxes. Denote centers by $(x_j, y_k)$. 
-  \item<3-> Integrate the equation in all coordinates over box.
-  \item<4-> Gives integrals that we estimate like $\int_{x_j - \frac{\Delta x}{2}}^{x_j + \frac{\Delta x}{2}} F(x,y_k) dx \approx F(x_j ,y_k)\Delta x$
-  \item<5-> When the dust settlels, 
+  \item Use finite volume. Here's how we do it in 2D.
+  \item Partition space to boxes. Denote centers by $(x_j, y_k)$. 
+  \item Integrate the equation in all coordinates over box.
+  \item Gives integrals that we estimate like $\int_{x_i - \frac{\Delta x}{2}}^{x_i + \frac{\Delta x}{2}} F(x,y_j) dx \approx F(x_i ,y_j)\Delta x$
+  \item When the dust settlels, 
   $$
   \frac{\der T_{ij}}{\der t} = -\frac{uT(x_{i+\frac{1}{2}} , y_j) - uT(x_{i-\frac{1}{2}} , y_j)}{\Delta x} -\frac{vT(x_i , y_{j+\frac{1}{2}}) - vT(x_i , y_{j-\frac{1}{2}})}{\Delta y}.
   $$  
-  \item<6-> $uT(x,y) = u(x,y) T(x,y)$.
-  \item<7-> Important - estimate $T$ on cell edges as an average of the two neighbouring cells.
-  \item<8-> Result: an ODE of the form $\frac{\der T}{\der t} = AT$, with $A$ linear in $T$.
+  \item $uT(x,y) = u(x,y) T(x,y)$ etc.
+  \item Important - estimate $T$ on cell edges as an average of the two neighbouring cells.
+  \item Result: an ODE of the form $\frac{\der T}{\der t} = AT$, with $A$ linear in $T$.
   \end{itemize}
 \end{frame}
 
@@ -72,34 +72,35 @@
   \frametitle{Saving on memory access costs}   % Insert frame title between curly braces
 
   \begin{itemize}
-\item<1-> Keep in mind, we want to simulate
+\item Keep in mind, we want to simulate
   $$
   \frac{\der T_{ij}}{\der t} = -\frac{uT(x_{i+\frac{1}{2}} , y_j) - uT(x_{i-\frac{1}{2}} , y_j)}{\Delta x} -\frac{vT(x_i , y_{j+\frac{1}{2}}) - vT(x_i , y_{j-\frac{1}{2}})}{\Delta y}.
   $$  
-  \item<2-> We'd like to use RK for $\frac{\der T}{\der t} = AT$. $A$ is just a convolution.
-  \item<3-> Naive implementation has big cost of data transmission.
-  \item<4-> We need $AT, A^2T, A^3T$ etc. locally on the GPU.
-  \item<4-> Manually is nasty. Forming the matrix is a bad idea.
-  \item<5-> Better - $T: \mathbb{N}^2 \to \mathbb{R}$ and $A:(\mathbb{N}^2 \to \mathbb{R}) \to (\mathbb{N}^2 \to \mathbb{R})$.  
-  \item<6-> Now Mathematica can do this for you using $\lambda$ calculus.
-  \item<7-> Bonus: switch RK method and dimension with zero effort.
+  \item We'd like to use RK for $\frac{\der T}{\der t} = AT$. $A$ is just a convolution.
+  \item Naive implementation has big cost of data transmission.
+  \item We need $AT, A^2T, A^3T$ etc. locally on the GPU.
+  \item Manually is nasty. Forming the matrix is a bad idea.
+  \item Better - $T: \mathbb{N}^2 \to \mathbb{R}$ and $A:(\mathbb{N}^2 \to \mathbb{R}) \to (\mathbb{N}^2 \to \mathbb{R})$.  
+  \item Mathematica can do this using $\lambda$ calculus.
+  \item Bonus: switch RK method and dimension with zero effort.
   \end{itemize}
 \end{frame}
 \note{Speak clearly}  % Add notes to yourself that will be displayed when
                       % typeset with the notes or notesonly class options
 
 
-\section{Implementation}
+\section{OpenCl Implementation}
 \begin{frame}
   \frametitle{Python}   % Insert frame title between curly braces
 
   \begin{itemize}
-  \item<1-> For the host side I used Andreas Kl\"ockner's PyOpenCl.
-  \item<2-> Allows easy set up of OpenCl and data transfer.
-  \item<3-> Relieves programmer from allocating and freeing data.
-  \item<4-> Can create the kernel on the fly using python's string methods.
-  \item<5-> Visualizations are also really easy, using matplotlib.
-  \item<6-> For CUDA machines Andreas made PyCUDA.
+  \item For the host side I used Andreas Kl\"ockner's PyOpenCl.
+  \item Allows easy set up of OpenCl and data transfer.
+  \item Relieves programmer from allocating and freeing data.
+  \item Can create the kernel on the fly using python's string methods.
+  \item Visualizations are also really easy, using matplotlib.
+  \item For CUDA machines Andreas made PyCUDA.
+  \item Incurs some overhead compared to C. I think it's worth it.
   \end{itemize}
 \end{frame}
 \note{Speak clearly}  % Add notes to yourself that will be displayed when
@@ -109,8 +110,8 @@
   \frametitle{Machines}   % Insert frame title between curly braces
 
   \begin{itemize}
-  \item<1-> I ran the code on two CIMS boxes, opencl1 and opencl3. 
-  \item<2-> Did the visualizations on my box. Speedtests on opencl3 using Cedar AMD GPU. 
+  \item I ran the code on two CIMS boxes, opencl1 and opencl3. 
+  \item Did the visualizations on my box. Speed tests on opencl3 using Cedar AMD GPU. 
   \end{itemize}
 \end{frame}
 \note{Speak clearly}  % Add notes to yourself that will be displayed when
@@ -118,19 +119,25 @@
 
 \section{Results}
 \begin{frame}
-  \frametitle{Run time versus}   % Insert frame title between curly braces
+  \frametitle{Run time versus problem size}   % Insert frame title between curly braces
   \begin{columns}[c]
   \column{2in}  % slides are 3in high by 5in wide
   \begin{itemize}
-  \item<1-> Used a third order RK method in 3D
-  \item<2-> Here is the scaling of the solution when we increase the problem.
+  \item We see runtimes per time step for the different RK methods.
+  \item Here is the scaling of the solution when we increase the problem.
   \end{itemize}
   \column{2in}
-  \framebox{Insert graphic here % e.g. \includegraphics[height=2.65in]{graphic}
+  \framebox{\includegraphics[height=2.0in , width = 2.0in]{3d.png}
   }
   \end{columns}
 \end{frame}
 \note{The end}       % Add notes to yourself that will be displayed when
-		     % typeset with the notes or notesonly class options
 
+\begin{frame}
+  \frametitle{Visualization}   % Insert frame title between curly braces
+  \begin{itemize}
+  \item There's a short movie, if we have time.  
+  \end{itemize}
+\end{frame}
+	
 \end{document}

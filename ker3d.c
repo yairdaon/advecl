@@ -21,7 +21,7 @@ inline float u( float xCol ,float yRow,  float zDep ){
   float x = (xCol+0.5)*HX;
   float y = (yRow+0.5)*HY;
   float z = (zDep+0.5)*HZ;
-  if ( x <= 0 || x >= HX*XCOLS    || y <= 0 || y >= HY*YROWS ) { //todo
+  if ( x <= 0 || x >= HX*XCOLS    || y <= 0 || y >= HY*YROWS || z <= 0 || z >= HZ*ZDEPT ) {
     return 0.0f;
   } else {
     return PIB* PSI * cos ( y * PIB ) * ( PP*exp(A*x) + (1-PP)*exp(B*x) -1.0f )/D; // todo??
@@ -32,7 +32,7 @@ inline float v( float xCol ,float yRow, float zDep ){
   float x = (xCol+0.5)*HX;
   float y = (yRow+0.5)*HY;
   float z = (zDep+0.5)*HZ;
-  if ( x <= 0 || x >= HX*XCOLS    || y <= 0 || y >= HY*YROWS ) {
+  if ( x <= 0 || x >= HX*XCOLS    || y <= 0 || y >= HY*YROWS || z <= 0 || z >= HZ*ZDEPT ) {
     return 0.0f;
   } else {
     return -PSI * sin( y * PIB) * ( A*PP*exp(A*x) + B*(1.0f-PP) * exp(B*x) )/D;  // todo??
@@ -42,18 +42,18 @@ inline float w( float xCol ,float yRow, float zDep ){
   float x = (xCol+0.5)*HX;
   float y = (yRow+0.5)*HY;
   float z = (zDep+0.5)*HZ;
-  if ( x <= 0 || x >= HX*XCOLS    || y <= 0 || y >= HY*YROWS ) {
+  if ( x <= 0 || x >= HX*XCOLS    || y <= 0 || y >= HY*YROWS || z <= 0 || z >= HZ*ZDEPT ) {
     return 0.0f;
   } else {
-    return -PSI * sin( y * PIB) * ( A*PP*exp(A*x) + B*(1.0f-PP) * exp(B*x) )/D; // DEF TODO
+    return 1.0f;//-PSI * sin( y * PIB) * ( A*PP*exp(A*z) + B*(1.0f-PP) * exp(B*z) )/D; // DEF TODO
   }
 }
 
 inline float T(__global float *array, long xCol , long yRow, long zDep) { 
-  if ( xCol < 0 || xCol > XCOLS-1 || yRow < 0 || yRow > YROWS-1 ) { // TODO
+  if ( xCol < 0 || xCol > XCOLS-1 || yRow < 0 || yRow > YROWS-1 || zDep < 0 || zDep > ZDEPT-1) {
     return 0.0f;
   } else {  
-    return array[yRow*XCOLS + xCol]; //TODO
+    return array[ yRow*XCOLS*ZDEPT + xCol*ZDEPT + zDep ];
   }
 }
 
@@ -79,11 +79,11 @@ kernel void rk_step( __global float* Tin,
   long yRow = get_global_id(1);  
   long zDep = get_global_id(2);  
 
-  if ( xCol < XCOLS && yRow < YROWS && zDep < ZDEPT) { // TODO
+  if ( xCol < XCOLS && yRow < YROWS && zDep < ZDEPT) {
 
     // Here we inline the Mathematica string. This is the actual time step calculation.
     float res = SPLIT;
   
-    Tout[yRow*XCOLS + xCol ] = res; // TODO
+    Tout[yRow*XCOLS*ZDEPT + xCol*ZDEPT + zDep ] = res; // TODO [i * height * depth + j * depth + k ]
   }
 }

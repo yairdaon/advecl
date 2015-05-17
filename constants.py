@@ -6,6 +6,7 @@ import numpy as np
 # time measured in weeks
 a     = 1       # west  to east - X axis - distanc
 b     = 1       # north to west - Y axis - distance
+c     = 1       # depth, for 3D simulations
 tau   = 0.0365  # = 0.1*(60*60*24*7)**2/1e12     # wind stress
 rho   = 1e6     # density - mass/volume = mass/distance^3
 beta  = 6e-5    # 1/distance
@@ -25,13 +26,13 @@ mu  = (0.5   ,0.4 , 0.3  )
 sig = (0.05  ,0.05, 0.05 ) 
 
 # Number of speed test iterations
-nSpeed = 10000
+nSpeed = 150
 
 # RK order 1 = Euler
-orders = [3, 2, 1]
+orders = [1, 2, 3]
 
 # Spatial discretizations
-hs = [0.1 , 0.05 , 0.01, 5e-3 ]
+hs = [0.1 , 0.05 , 0.025, 0.02, 0.0125 , 0.01 , 5e-3 ]
 
 # CFL multiplier factor
 factor = 5.0
