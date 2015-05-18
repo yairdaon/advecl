@@ -8,6 +8,8 @@
 % Other themes include: beamerthemebars, beamerthemelined, 
 %                       beamerthemetree, beamerthemetreebars  
 \newcommand{\der}{\text{d}}
+\newcommand{\coder}[1]{\texttt{#1}}
+
 \title{Fast simulation of advection equation using GPUs}    % Enter your title between curly braces
 \author{Yair Daon}                 % Enter your name between curly braces
 \institute{Courant Institute}      % Enter your institute name between curly braces
@@ -119,15 +121,18 @@
 
 \section{Results}
 \begin{frame}
-  \frametitle{Run time versus problem size}   % Insert frame title between curly braces
+  \frametitle{Scaling}   % Insert frame title between curly braces
   \begin{columns}[c]
   \column{2in}  % slides are 3in high by 5in wide
   \begin{itemize}
-  \item We see runtimes per time step for the different RK methods.
-  \item Here is the scaling of the solution when we increase the problem.
+  \item Observe weak scaling.
+  \item RK3 kernel is big $\sim$ 80KB.
+  \item RK2 kernel is $\sim$ 16KB.
+  \item Rk3 accesses memory 3 times more than RK2.
+  \item Advice: use \coder{time.time}.
   \end{itemize}
   \column{2in}
-  \framebox{\includegraphics[height=2.0in , width = 2.0in]{3d.png}
+  \framebox{\includegraphics[height=2.0in , width = 2.0in]{pdf/3d.png}
   }
   \end{columns}
 \end{frame}
@@ -140,4 +145,23 @@
   \end{itemize}
 \end{frame}
 	
+
+\section{Future}
+\begin{frame}
+  \frametitle{Now what?}   % Insert frame title between curly braces
+ 
+  \begin{itemize}
+  \item<1-> Take it to extreme scale - run on many GPUs using MPI.
+  \item<2-> Nonlinear problems. $\lambda$ calculus may still be of use.
+  \item<3-> Propagate uncertainties in time using openMP.
+  \item<4-> Take a few time steps locally.
+  \item<5-> Solve in one pass, for any fixed time (more suitable for CPUs).
+  \item<6-> Adaptive meshes.
+  \item<7-> Calculate approximate solution using dominant eigenvectors..
+  \item<8-> Infer IC using deconvolution techiniques.
+  \item<8-> Might be possible to use (parallel) Multigrid for that.
+  \end{itemize}
+\end{frame}
+\note{The end}       % Add notes to yourself that will be displayed when
+
 \end{document}

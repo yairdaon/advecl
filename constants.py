@@ -26,13 +26,13 @@ mu  = (0.5   ,0.4 , 0.3  )
 sig = (0.05  ,0.05, 0.05 ) 
 
 # Number of speed test iterations
-nSpeed = 150
+nSpeed = 10
 
 # RK order 1 = Euler
 orders = [1, 2, 3]
 
 # Spatial discretizations
-hs = [0.1 , 0.05 , 0.025, 0.02, 0.0125 , 0.01 , 5e-3 ]
+hs = [0.1 , 0.05 , 0.025, 0.02, 0.0125 , 0.01]
 
 # CFL multiplier factor
 factor = 5.0

@@ -81,7 +81,7 @@ def test_speed(file_name , ctx_str):
             Tout_d     = cl_array.arange(queue, nxCenters*nyCenters*nzCenters, dtype=np.float32, allocator=out_pool)
 
             # start the timing:
-            start = time.clock()
+            start = time.time()
 
             # do time stepping and plotting.
             for i  in range(nSpeed):
@@ -97,7 +97,7 @@ def test_speed(file_name , ctx_str):
                 Tout_d.get(queue=queue , ary=T)
         
             # End timing for this round
-            end = time.clock()
+            end = time.time()
 
             # RK order , space step , number of time steps , number of points, total time\n")
             data = str(order) + " , " + str(h) +  " , " + str(nSpeed) + " , " + str(T.shape[0]*T.shape[1]*T.shape[2]) + " , " + str(end-start)  + "\n"

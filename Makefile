@@ -58,3 +58,10 @@ rk3.txt:rk2d.m
 3Drk3.txt:rk3d.m
 	rm -rvf 3Drk1.txt 3Drk2.txt 3Drk3.txt
 	math -script rk3d.m
+
+pdf:	pdf/presentation.pdf
+	make pdf/presentation.pdf
+pdf/presentation.pdf: 	pdf/presentation.tex res/cedar3d.txt
+	#python2.7 plotter.py
+	pdflatex pdf/presentation.tex
+	rm -rfv *.nav *.snm *.aux *.out
