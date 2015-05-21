@@ -1,0 +1,1 @@
+T(Tin,xCol,yRow) + HT*(-(-((T(Tin,-1 + xCol,yRow) + T(Tin,xCol,yRow))*u(-0.5 + xCol,yRow)) + (T(Tin,xCol,yRow) + T(Tin,1 + xCol,yRow))*u(0.5 + xCol,yRow))/(2.*HX) - (-((T(Tin,xCol,-1 + yRow) + T(Tin,xCol,yRow))*v(xCol,-0.5 + yRow)) + (T(Tin,xCol,yRow) + T(Tin,xCol,1 + yRow))*v(xCol,0.5 + yRow))/(2.*HY))
