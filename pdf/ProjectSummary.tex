@@ -4,7 +4,8 @@
 \usepackage[T1]{fontenc} % Use 8-bit encoding that has 256 glyphs
 \usepackage[english]{babel} % English language/hyphenation
 \usepackage{amsmath,amsfonts,amsthm} % Math packages
-\usepackage{algorithm} % algorithm package
+\usepackage{cite}
+%\usepackage{algorithm} % algorithm package
 
 
 \usepackage{sectsty} % Allows customizing section commands
@@ -40,7 +41,7 @@
 %----------------------------------------------------------------------------------------
 % new commands
 %----------------------------------------------------------------------------------------
-\newcommand{\dd}{\text{d}}
+\newcommand{\der}{\text{d}}
 \newcommand{\coder}[1]{\texttt{#1}}
 
 
@@ -64,46 +65,47 @@ I solve scalar advection equation using OpenCl on GPUs and create visualizations
 \end{abstract}
 \section{Problem statement}
 Consider the followin PDE:
-$$
-T_{t} + (uT)_x + (vT)_y = 0,
-$$
-for a given $u,v$ s.t $u_x + v_y = 0$.
-we'd like to solve this equation numerically and simulate the results.
+Consider $\frac{\partial T}{\partial t} + \sum_{i=1}^{d} \frac{\partial u^{(i)}T}{\partial x^{(i)}} = 0$.
+$T$ is a tracer - ``a drop of ink in water'', $d$ is the dimension. Focus on flows such that $\sum_{i=1}^{d} \frac{\partial u^{(i)}}{\partial x^{(i)}} = 0$ - incompressible.
+We'd like to solve this equation numerically and simulate the results.
 
 
-\section{Solution Methodology - math}
-Consider the 2D case.
- Discretize the domain using finite volume method. 
-Denote the centers of the elements by $x_j, y_i$. 
-After making a few approximations, this amounts to the following ODE:
 
+\section{Solution Methodology - numerics}
+Consider the 2D case. We follow \cite{terrorist}. 
+Use finite volume and then a RK method. Here we consider $d=2$. First, partition spatial domain to boxes. Denote centers by $(x_j, y_k)$.
+Integrate the equation in all coordinates over box.  This gives integrals like 
+$\int_{x_i - \frac{\Delta x}{2}}^{x_i + \frac{\Delta x}{2}} F(x,y_j) dx$. We estimate these by
+the value at the center - $\int_{x_i - \frac{\Delta x}{2}}^{x_i + \frac{\Delta x}{2}} F(x,y_j) dx \approx F(x_i ,y_j)\Delta x$.
+Finally, when the dust settles, 
+  $$
+  \frac{\der T_{ij}}{\der t} = -\frac{uT(x_{i+\frac{1}{2}} , y_j) - uT(x_{i-\frac{1}{2}} , y_j)}{\Delta x} -\frac{vT(x_i , y_{j+\frac{1}{2}}) - vT(x_i , y_{j-\frac{1}{2}})}{\Delta y}.
 $$
-\frac{\dd T_{ji}}{\dd t} = -\frac{uT(x_j + \frac{\Delta x}{2},y_i) - uT(x_j - \frac{\Delta x}{2},y_i) +
-				  vT(x_j,y_i + \frac{\Delta y}{2}) - vT(x_j,y_i + \frac{\Delta y}{2}) }{\Delta x\Delta y},
-$$
-where $uT(x,y) := u(x,y)T(x,y)$ etc.
-This amounts to an ODE and can be solved using your favorite Runge Kutta method.
+with $uT(x_{i+\frac{1}{2}} ,2 y_j)= u(x_i + \frac{\Delta x}{2},y_j) \frac{T_{ij} + T_{i+1,j}}{2}$ etc. - we estimate $T$ on cell edges as 
+an average of the two neighbouring cells. This procedure results in an ODE of the form $\frac{\der T}{\der t} = AT$, with $A$ linear in $T$. We solve this
+via a Runge Kutta method.
 
 \section{Solution Methodology - computing}
 
 \subsection{PyOpenCl}
-For accessing OpenCl devices, I used PyOpenCl. This is a wonderful python package written by Andreas Kl\"ockner. 
+For accessing OpenCl devices, I used PyOpenCl \cite{pyopencl}. This is a wonderful python package written by Andreas Kl\"ockner. 
 It makes creating visualizations and initial conditions a whole lot easier, not to 
-mention freeing memory and all the nice things python does seamlessly.
+mention freeing memory and all the nice things python does seamlessly. It is important to note that PyOpenCl handles the host side. 
+The device (GPU in my case) still runs a native OpenCl code which is 
+compiled just in time.
 
 \subsection{Mathematica} 
-A major component of my implementation relies on the observation that in this context, a RK method is really a convolution
- (at least, as far as the GPU is concerned). The filter weights made of the functions $u,v$. If we do a n\"aive RK, we'd have to
+If we do a n\"aive RK, we'd have to
 send data back and forth between main memory and the GPU. Recalling the rule of thumb that says 
 \\
 \\
 \centerline{\Large{``Flops are cheap, memory access is expensive``}}
 \\
 
- it's clear that one has to calculate the final update as a weighted sum of $T_{ji}, T_{(j+1),i}$ etc. 
+ it's clear that one has to calculate the final time step as a weighted sum of $T_{ji}, T_{(j+1),i}$ etc. 
 Performing these calculations manually is a horrible task, so I turned to Mathematica. It is a super high level and abstract
 programming language suitable for symbolic manipulations. 
-Hence, I define the following operator in Mathematica:
+Hence, I define the following operator in Mathematica (for 2D flows. 3D is similar):
 
 \begin{verbatim}
  A = Function[T , Function[{arr,i,j}, -(
@@ -120,7 +122,7 @@ I use it to get the RK step explicitly.
     rk3     = T[Tin,i,j] - HT*A[T][Tin,i,j] - 0.5*HT*HT*A[A[T]][Tin,i,j] + 
                    	 0.25*HT*HT*HT*A[A[A[T]]][Tin,i,j]
     rk3     = ToString[CForm[Simplify[rk3]]]
-    string  = ToString[CForm[Simplify[rk]]]
+    string  = ToString[CForm[Simplify[rk3]]]
 \end{verbatim}
 
 This allows me to let Mathematica derive any order of RK method I want, owing to the linearity of the operator A. 
@@ -132,24 +134,8 @@ dimensions (i.e. 3) is trivial (add indices and copy-paste).
 \subsection{Inlining constants and the Kernel}
 Since I was using python, I allowed myself to add all the parameters as constatns (by using \coder{\#define PI 3.14159...} etc. This 
 might have saved some communication and some flops, but is just a tiny bonus python allows to use. The main advantage python gave me
-in this respect, is the ability to write one of the simplest kernels possible:
-\begin{verbatim}
- kernel void rk_step( const global float* Tin, global float* Tout) {
-
-  // get location
-  long i = get_global_id(0);  
-  long j = get_global_id(1);  
-
-  if ( i < M && j < N) {
-  
-    // Here we inline the Mathematica string. This is the actual RK step calculation.
-    float res = SPLIT;
-    Tout[i*N + j] = res;
-  }
-}
-
-\end{verbatim}
-The \coder{SPLIT} ``variable'' is where python substituted the expression Mathematica gives.
+in this respect, is the ability to write a ''generic`` kernel and just substitute, on the fly, the correct expression for the RK step.
+This makes debugging easy and automate the process of performing simulations considerably.
 
 
 \subsection{Machines}
@@ -158,16 +144,14 @@ I used my CIMS machine's CPU and GPU and also used the Tahiti and Cedar GPU proc
 
 
 \section{Performance}
-This is super fast. The real slow part is creating the 
-visualizations - the AMD GPU can create data faster that python acn create visualizations.
-
-
+At first I was amazed at how fast the code runs. There are considerable differences in speed between a third and a second order RK methods.
+The code shows beautiful weak scalability. See figure.
 
 \section{What have I gained}
 I got exprerience with using OpenCl, through PyOpenCl (which made deebugging and visualization much easier). I believe that writing 
 computational code in lower level language (here, OpenCL) and using an interface from a higher level language (PyOpenCl) is good
-approach to doing scientific computing. This is mainly because there is usually a small chunk of code that does the numerics (this has to 
-run FAST) and other bits that can be slower.
+practice when doing scientific computing. This is mainly because there is usually a small chunk of code that does the numerics (this has to 
+run FAST) and other bits that can be made slower, making the programmer's life a whole lot easier.
 
 I also learned that every vendor has their own nuiances and so fitting your code to the machine it will run on isn't necessarily
 a bad idea. My problem was creating code that is portable between Intel and AMD - the errors they give are not consistent.
@@ -179,13 +163,13 @@ simulation that relies on discretizations.
 I also go familiar with some fluid dynamics, which is cool.
 
 \section{What I did not do and failures}
-I did not run the code on a 3D problem, lacking an appropriate flow problem. I did not cache the input \coder{Tin} array to local memory.
-This might have sped things up. However, the code ran so fast that I did not feel a need to do so.
+I did not make a 3D visualization, lacking an appropriate flow problem. I did not cache the input array to local memory on the OpenCl device, which 
+could have sped things up. However, the code ran so fast that I did not feel a need to do so.
 
 \newpage
 
 \section{Appendix}
-Here is the C code Mathematica spits out for a 2D 2nd order Runge Kutta method. For higher orders and dimensions, it is even worst.
+Here is the C code Mathematica spits out for a 2D 2nd order Runge Kutta method. For higher orders and dimensions, it looks even worst.
 \begin{verbatim}
 T(Tin,i,j) + HT*(-(-((T(Tin,-1 + i,j) + T(Tin,i,j))*u(i,j)) 
 + (T(Tin,i,j) + T(Tin,1 + i,j))*u(1 + i,j))/(2.f*HX) - 
@@ -222,5 +206,10 @@ T(Tin,1 + i,-1 + j)*u(1 + i,j)*v(1 + i,j) -
 T(Tin,1 + i,j)*u(1 + i,j)*v(1 + i,1 + j) +
  HX*HY*T(Tin,1 + i,1 + j)*u(1 + i,j)*v(1 + i,1 + j)) 
 \end{verbatim}
+
+
+%\bibliographystyle{te}
+
+\bibliography{refs}
 
 \end{document}
