@@ -5,6 +5,7 @@
 \usepackage[english]{babel} % English language/hyphenation
 \usepackage{amsmath,amsfonts,amsthm} % Math packages
 \usepackage{cite}
+\usepackage{graphicx}
 %\usepackage{algorithm} % algorithm package
 
 
@@ -81,7 +82,7 @@ Finally, when the dust settles,
   $$
   \frac{\der T_{ij}}{\der t} = -\frac{uT(x_{i+\frac{1}{2}} , y_j) - uT(x_{i-\frac{1}{2}} , y_j)}{\Delta x} -\frac{vT(x_i , y_{j+\frac{1}{2}}) - vT(x_i , y_{j-\frac{1}{2}})}{\Delta y}.
 $$
-with $uT(x_{i+\frac{1}{2}} ,2 y_j)= u(x_i + \frac{\Delta x}{2},y_j) \frac{T_{ij} + T_{i+1,j}}{2}$ etc. - we estimate $T$ on cell edges as 
+with $uT(x_{i+\frac{1}{2}} , y_j)= u(x_i + \frac{\Delta x}{2},y_j) \frac{T_{ij} + T_{i+1,j}}{2}$ etc. - we estimate $T$ on cell edges as 
 an average of the two neighbouring cells. This procedure results in an ODE of the form $\frac{\der T}{\der t} = AT$, with $A$ linear in $T$. We solve this
 via a Runge Kutta method.
 
@@ -102,27 +103,26 @@ send data back and forth between main memory and the GPU. Recalling the rule of 
 \centerline{\Large{``Flops are cheap, memory access is expensive``}}
 \\
 
- it's clear that one has to calculate the final time step as a weighted sum of $T_{ji}, T_{(j+1),i}$ etc. 
-Performing these calculations manually is a horrible task, so I turned to Mathematica. It is a super high level and abstract
+ it's clear that one has to calculate the new $T_{ij}$ locally as a function of old local values $T_{ij}, T_{i,(j+1)}$ etc. 
+ Deriving the required equations manually is a horrible task, so I turned to Mathematica \cite{math}. It is a high level and abstract
 programming language suitable for symbolic manipulations. 
 Hence, I define the following operator in Mathematica (for 2D flows. 3D is similar):
 
 \begin{verbatim}
- A = Function[T , Function[{arr,i,j}, -(
-    u[i+1,j]*( T[arr,i+1,j] + T[arr,i,j  ] ) -
-    u[i  ,j]*( T[arr,i  ,j] + T[arr,i-1,j] )
-    )/(2*HX)  - (
-    v[i,j+1]*( T[arr,i,j+1] + T[arr,i,j  ] ) - 
-    v[i,j  ]*( T[arr,i,  j] + T[arr,i,j-1] )
-    )/(2*HY)]]
+A = Function[T , Function[{arr,i,j},  
+			  -(u[i+0.5,j]*( T[arr,i+1,j  ] + T[arr,i,j] ) - 
+			  u[i-0.5 ,j]*(T[arr,i,j] +T[arr,i-1,j  ] ))/(2*HX)  
+			  -(v[i,j+0.5]*( T[arr,i  ,j+1] + T[arr,i,j] ) - 
+			  v[i ,j-0.5]*(T[arr,i,j] +T[arr,i  ,j-1] ))/(2*HY)
+ 				]]
 \end{verbatim}
-
-I use it to get the RK step explicitly.
+where \coder{Function} takes the role of $\lambda$ in $\lambda$ calculus.
+I use it to get the RK step explicitly. For example, the expression for the 
+new $T_{ij}$ is found via the following RK mehtod:
 \begin{verbatim}
-    rk3     = T[Tin,i,j] - HT*A[T][Tin,i,j] - 0.5*HT*HT*A[A[T]][Tin,i,j] + 
-                   	 0.25*HT*HT*HT*A[A[A[T]]][Tin,i,j]
-    rk3     = ToString[CForm[Simplify[rk3]]]
-    string  = ToString[CForm[Simplify[rk3]]]
+  rk3     = T[Tin,i,j] - HT*A[T][Tin,i,j] - 0.5*HT*HT*A[A[T]][Tin,i,j] +
+                         0.25*HT*HT*HT*A[A[A[T]]][Tin,i,j]
+  rk3     = ToString[CForm[Simplify[rk3]]]
 \end{verbatim}
 
 This allows me to let Mathematica derive any order of RK method I want, owing to the linearity of the operator A. 
@@ -145,7 +145,13 @@ I used my CIMS machine's CPU and GPU and also used the Tahiti and Cedar GPU proc
 
 \section{Performance}
 At first I was amazed at how fast the code runs. There are considerable differences in speed between a third and a second order RK methods.
-The code shows beautiful weak scalability. See figure.
+The code shows beautiful weak scalability.
+
+\begin{figure}[ht!]
+\centering
+\includegraphics[width=90mm]{3d.png}
+\caption{Weak scalability of time of a RK steps \label{overflow}}
+\end{figure}
 
 \section{What have I gained}
 I got exprerience with using OpenCl, through PyOpenCl (which made deebugging and visualization much easier). I believe that writing 
@@ -166,50 +172,49 @@ I also go familiar with some fluid dynamics, which is cool.
 I did not make a 3D visualization, lacking an appropriate flow problem. I did not cache the input array to local memory on the OpenCl device, which 
 could have sped things up. However, the code ran so fast that I did not feel a need to do so.
 
+\bibliographystyle{unsrt}
+
+\bibliography{refs}
+
 \newpage
 
 \section{Appendix}
 Here is the C code Mathematica spits out for a 2D 2nd order Runge Kutta method. For higher orders and dimensions, it looks even worst.
+This is the main reason I had to use a symbolic package.
 \begin{verbatim}
-T(Tin,i,j) + HT*(-(-((T(Tin,-1 + i,j) + T(Tin,i,j))*u(i,j)) 
-+ (T(Tin,i,j) + T(Tin,1 + i,j))*u(1 + i,j))/(2.f*HX) - 
-(-((T(Tin,i,-1 + j) + T(Tin,i,j))*v(i,j)) + (T(Tin,i,j) 
-+ T(Tin,i,1 + j))*v(i,1 + j))/(2.f*HY)) + 
-(8*HT*HT*HX*HX*HY*HY)/(HY*HY*T(Tin,-2 + i,j)*u(-1 + i,j)*u(i,j)
- - 2*HY*HY*T(Tin,i,j)*u(i,j)*u(1 + i,j)
- - HY*HY*T(Tin,1 + i,j)*u(i,j)*u(1 + i,j) + HY*HY*T(Tin,1 + i,j)
-*u(1 + i,j)*u(2 + i,j) + HY*HY*T(Tin,2 + i,j)
-*u(1 + i,j)*u(2 + i,j) + HX*HY*T(Tin,-1 + i,-1 + j)*u(i,j)*
-v(-1 + i,j) - HX*HY*T(Tin,-1 + i,1 + j)*u(i,j)*v(-1 + i,1 + j)
- + HX*HY*T(Tin,-1 + i,-1 + j)*u(i,-1 + j)*v(i,j) + HX*HY*
-T(Tin,i,-1 + j)*u(i,-1 + j)*v(i,j) + HX*HY*T(Tin,i,-1 + j)*
-u(i,j)*v(i,j) + 2*HX*HY*T(Tin,i,j)*u(i,j)*v(i,j) - HX*HY*
-T(Tin,i,-1 + j)*u(1 + i,-1 + j)*v(i,j) - HX*HY*T(Tin,1 + i,-1 + j)*
-u(1 + i,-1 + j)*v(i,j) - HX*HY*T(Tin,i,-1 + j)*u(1 + i,j)*v(i,j)
- - 2*HX*HY*T(Tin,i,j)*u(1 + i,j)*v(i,j) - HX*HY*T(Tin,1 + i,j)*u(1 + i,j)*v(i,j) 
-+ HX*HX*T(Tin,i,-2 + j)*v(i,-1 + j)*v(i,j) + HX*HX*T(Tin,i,-1 + j)*
-v(i,-1 + j)*v(i,j) + HY*T(Tin,-1 + i,j)*u(i,j)*(HY*u(-1 + i,j)
- - HY*u(1 + i,j) + HX*(v(-1 + i,j) - v(-1 + i,1 + j) + v(i,j) -
- v(i,1 + j))) - 2*HX*HY*T(Tin,i,j)*u(i,j)*v(i,1 + j)
- - HX*HY*T(Tin,i,1 + j)*u(i,j)*v(i,1 + j) - HX*HY*T(Tin,-1 + i,1 + j)*
-u(i,1 + j)*v(i,1 + j) - HX*HY*T(Tin,i,1 + j)*u(i,1 + j)*v(i,1 + j)
- + 2*HX*HY*T(Tin,i,j)*u(1 + i,j)*v(i,1 + j) + HX*HY*T(Tin,i,1 + j)*
-u(1 + i,j)*v(i,1 + j) + HX*HY*T(Tin,1 + i,j)*u(1 + i,j)*v(i,1 + j)
- + HX*HY*T(Tin,i,1 + j)*u(1 + i,1 + j)*v(i,1 + j) + HX*HY*
-T(Tin,1 + i,1 + j)*u(1 + i,1 + j)*v(i,1 + j) 
-- HX*HX*T(Tin,i,-1 + j)*v(i,j)*v(i,1 + j) - 2*HX*HX*T(Tin,i,j)*
-v(i,j)*v(i,1 + j) - HX*HX*T(Tin,i,1 + j)*v(i,j)*v(i,1 + j) +
- HX*HX*T(Tin,i,1 + j)*v(i,1 + j)*v(i,2 + j) +
- HX*HX*T(Tin,i,2 + j)*v(i,1 + j)*v(i,2 + j) - HX*HY*
-T(Tin,1 + i,-1 + j)*u(1 + i,j)*v(1 + i,j) -
- HX*HY*T(Tin,1 + i,j)*u(1 + i,j)*v(1 + i,j) + HX*HY*
-T(Tin,1 + i,j)*u(1 + i,j)*v(1 + i,1 + j) +
- HX*HY*T(Tin,1 + i,1 + j)*u(1 + i,j)*v(1 + i,1 + j)) 
+T(Tin,xCol,yRow) + HT*(-(-((T(Tin,-1 + xCol,yRow) + T(Tin,xCol,yRow))*u(-0.5 + 
+xCol,yRow))+ (T(Tin,xCol,yRow) + T(Tin,1 + xCol,yRow))*u(0.5 + xCol,yRow))/(2.
+*HX) - (-((T(Tin,xCol,-1 + yRow) + T(Tin,xCol,yRow))*v(xCol,-0.5 + yRow)) + (T
+(Tin,xCol,yRow) + T(Tin,xCol,1 + yRow))*v(xCol,0.5 + yRow))/(2.*HY)) - (0.125*
+HT*HT*(HX*(v(xCol,-0.5 + yRow)*(-(HY*T(Tin,-1 + xCol,-1 + yRow)*u(-0.5 + xCol,
+-1 + yRow)) - HY*T(Tin,-1 + xCol,yRow)*u(-0.5 + xCol,yRow) - HY*T(Tin,xCol,yRow
+)*u(-0.5 + xCol,yRow) + HY*T(Tin,1 + xCol,-1 + yRow)*u(0.5 + xCol,-1 + yRow) + 
+HY*T(Tin,xCol,yRow)*u(0.5 + xCol,yRow) + HY*T(Tin,1 + xCol,yRow)*u(0.5 + xCol
+,yRow) - HX*T(Tin,xCol,-2 + yRow)*v(xCol,-1.5 + yRow) - T(Tin,xCol,-1 + yRow)
+*(HY*u(-0.5 + xCol,-1 + yRow) - HY*u(0.5 + xCol,-1 + yRow) + HX*v(xCol,-1.5 +
+yRow)) + HX*T(Tin,xCol,yRow)*v(xCol,0.5 + yRow) + HX*T(Tin,xCol,1 + yRow)*v(xCol
+,0.5 + yRow)) + v(xCol,0.5 + yRow)*(HY*T(Tin,-1 + xCol,yRow)*u(-0.5 + xCol,yRow) 
++ HY*T(Tin,-1 + xCol,1 + yRow)*u(-0.5 + xCol,1 + yRow) + HY*T(Tin,xCol,1 + yRow)
+*u(-0.5 + xCol,1 + yRow) - HY*T(Tin,1 + xCol,yRow)*u(0.5 + xCol,yRow) - HY*T(Tin
+,xCol,1 + yRow)*u(0.5 + xCol,1 + yRow) - HY*T(Tin,1 + xCol,1 + yRow)*u(0.5 + xCol
+,1 + yRow) + HX*T(Tin,xCol,-1 + yRow)*v(xCol,-0.5 + yRow) + T(Tin,xCol,yRow)*(HY*
+u(-0.5 + xCol,yRow) - HY*u(0.5 + xCol,yRow) + HX*v(xCol,-0.5 + yRow)) - HX*T(Tin,
+xCol,1 + yRow)*v(xCol,1.5 + yRow) - HX*T(Tin,xCol,2 + yRow)*v(xCol,1.5 + yRow)))
++ HY*(-(u(-0.5 + xCol,yRow)*(HY*T(Tin,-2 + xCol,yRow)*u(-1.5 + xCol,yRow) - HY*T
+(Tin,xCol,yRow)*u(0.5 + xCol,yRow) - HY*T(Tin,1 + xCol,yRow)*u(0.5 + xCol,yRow) + 
+HX*T(Tin,-1 + xCol,-1 + yRow)*v(-1 + xCol,-0.5 + yRow) - HX*T(Tin,-1 + xCol,1 + 
+yRow)*v(-1 + xCol,0.5 + yRow) + T(Tin,-1 + xCol,yRow)*(HY*u(-1.5 + xCol,yRow) +
+HX*v(-1 + xCol,-0.5 + yRow) - HX*v(-1 + xCol,0.5 + yRow)) + HX*T(Tin,xCol,-1 + 
+yRow)*v(xCol,-0.5 + yRow) + HX*T(Tin,xCol,yRow)*v(xCol,-0.5 + yRow) - HX*T(Tin,
+xCol,yRow)*v(xCol,0.5 + yRow) - HX*T(Tin,xCol,1 + yRow)*v(xCol,0.5 + yRow))) +
+u(0.5 + xCol,yRow)*(HY*T(Tin,-1 + xCol,yRow)*u(-0.5 + xCol,yRow) - HY*T(Tin,1 + 
+xCol,yRow)*u(1.5 + xCol,yRow) - HY*T(Tin,2 + xCol,yRow)*u(1.5 + xCol,yRow) + HX*
+T(Tin,xCol,-1 + yRow)*v(xCol,-0.5 + yRow) - HX*T(Tin,xCol,1 + yRow)*v(xCol,0.5 +
+yRow) + T(Tin,xCol,yRow)*(HY*u(-0.5 + xCol,yRow) + HX*v(xCol,-0.5 + yRow) - HX*v
+(xCol,0.5 + yRow)) + HX*T(Tin,1 + xCol,-1 + yRow)*v(1 + xCol,-0.5 + yRow) + HX*T
+(Tin,1 + xCol,yRow)*v(1 + xCol,-0.5 + yRow) - HX*T(Tin,1 + xCol,yRow)*v(1 + xCol
+,0.5 + yRow) - HX*T(Tin,1 + xCol,1 + yRow)*v(1 + xCol,0.5 + yRow)))))/(HX*HX*HY*HY)
 \end{verbatim}
 
-
-%\bibliographystyle{te}
-
-\bibliography{refs}
 
 \end{document}
