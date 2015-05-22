@@ -144,8 +144,12 @@ I used my CIMS machine's CPU and GPU and also used the Tahiti and Cedar GPU proc
 
 
 \section{Performance}
-At first I was amazed at how fast the code runs. There are considerable differences in speed between a third and a second order RK methods.
-The code shows beautiful weak scalability.
+At first I was amazed at how fast the code runs. That was when I used a second order RK step. 
+The third order RK step takes longer. Still, you need to take a fine mesh to slow it down. 
+In \cite{terroris} it is suggested that, in 2D, one take steps as small as $0.01$ (if the axes are $\mathcal{O}(1)$.
+In 2D, the GPU rushes through such fine meshes in no time. I had to take it to 3D and add considerably
+more flops (and memory access) to observe some slowing down.
+The runtime shows beautiful weak scalability.
 
 \begin{figure}[ht!]
 \centering
@@ -169,10 +173,13 @@ simulation that relies on discretizations.
 I also go familiar with some fluid dynamics, which is cool.
 
 \section{What I did not do and failures}
-I did not make a 3D visualization, lacking an appropriate flow problem. I did not cache the input array to local memory on the OpenCl device, which 
-could have sped things up. However, the code ran so fast that I did not feel a need to do so.
+I did not make a 3D visualization, lacking an appropriate flow problem and time.
+Also, I did not cache the input array to local memory on the OpenCl device, which 
+could have sped things up considerably. However, the code ran quite fast and I did not feel a need to do so.
+I did not try this approach (finite volume, RK time steps and then Mathematica) on a non linear problem. 
+I believe the current code will allow me to tackle such a problem with relative ease.
 
-\bibliographystyle{unsrt}
+\bibliographystyle{ieeetr}
 
 \bibliography{refs}
 
